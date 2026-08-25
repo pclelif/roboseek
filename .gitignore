@@ -37,6 +37,9 @@ ExportedObj/
 # Crash Reports
 sysinfo.txt
 
+# Local Unity batch/automation logs
+/unity_*.log
+
 # OS generated files
 .DS_Store
 .DS_Store?
