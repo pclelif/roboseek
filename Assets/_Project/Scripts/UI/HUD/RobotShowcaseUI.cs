@@ -61,6 +61,11 @@ namespace Robot.UI.HUD
 
         private bool ShouldHandleUI()
         {
+            if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening)
+            {
+                return false;
+            }
+
             var netObj = GetComponent<Unity.Netcode.NetworkObject>();
             if (netObj != null)
             {

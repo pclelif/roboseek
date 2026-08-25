@@ -21,6 +21,7 @@ namespace Robot.ObjectHunt
         private Text countdown;
         private Text timer;
         private Text prompt;
+        private GameObject promptPanel;
         private Text result;
         private Button nextRoundButton;
         private readonly List<Text> cardLabels = new List<Text>();
@@ -65,16 +66,17 @@ namespace Robot.ObjectHunt
         private void Update()
         {
             CollectibleTarget nearest = manager != null ? manager.GetNearestInteractable() : null;
-            if (prompt != null)
+            bool show = nearest != null && !nearest.IsCollecting;
+
+            if (promptPanel != null) promptPanel.SetActive(show);
+            else if (prompt != null) prompt.gameObject.SetActive(show);
+
+            if (prompt != null && show)
             {
-                bool show = nearest != null && !nearest.IsCollecting;
-                prompt.gameObject.SetActive(show);
-                if (show)
-                {
-                    string targetName = nearest.Definition != null ? nearest.Definition.displayName.ToUpper() : "OYUNCAK";
-                    prompt.text = $"<b>[E]</b>  {targetName} TOPLA";
-                }
+                string targetName = nearest.Definition != null ? nearest.Definition.displayName.ToUpper() : "OYUNCAK";
+                prompt.text = $"<b>[E]</b>  {targetName} TOPLA";
             }
+
             if (gameLoop != null && gameLoop.CurrentPhase == RoundPhase.Result && (UnityEngine.Input.GetKeyDown(KeyCode.Return) || UnityEngine.Input.GetKeyDown(KeyCode.Space)))
                 gameLoop.StartNextRound();
         }
@@ -317,10 +319,13 @@ namespace Robot.ObjectHunt
             nextRoundButton.onClick.AddListener(() => gameLoop?.StartNextRound());
             nextRoundButton.gameObject.SetActive(false);
             resultPanel.SetActive(false);
-            prompt = Label("<b>[E]</b>  TOPLA", canvas.transform, 22, new Vector2(0f, -140f), new Vector2(340f, 50f));
+            promptPanel = Panel("Prompt Background", canvas.transform, new Vector2(0.5f, 0.5f), new Vector2(360f, 54f));
+            promptPanel.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, -140f);
+            promptPanel.GetComponent<Image>().color = new Color(0.08f, 0.10f, 0.14f, 0.94f);
+            prompt = Label("<b>[E]</b>  TOPLA", promptPanel.transform, 22, Vector2.zero, new Vector2(360f, 54f));
             prompt.supportRichText = true;
-            prompt.rectTransform.anchorMin = prompt.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            prompt.gameObject.SetActive(false);
+            prompt.color = new Color(1f, 0.88f, 0.22f, 1f);
+            promptPanel.SetActive(false);
             trackerPanel.SetActive(false);
             if (FindFirstObjectByType<EventSystem>() == null)
             {

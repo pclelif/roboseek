@@ -57,7 +57,17 @@ namespace Robot.ObjectHunt
             TimerChanged?.Invoke(timeRemaining);
             if (timeRemaining <= 0f) FailRound();
 
-            bool interactPressed = (input != null && input.ConsumeInteractPressed()) || UnityEngine.Input.GetKeyDown(KeyCode.E);
+            bool interactPressed = false;
+            if (input != null && input.ConsumeInteractPressed()) interactPressed = true;
+            if (UnityEngine.Input.GetKeyDown(KeyCode.E)) interactPressed = true;
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.eKey.wasPressedThisFrame)
+                    interactPressed = true;
+            }
+            catch { }
+#endif
             if (interactPressed) TryPickupNearest();
         }
 
@@ -112,8 +122,8 @@ namespace Robot.ObjectHunt
             if (player == null) ResolvePlayer();
             if (player == null) return null;
             return activeTargets.Where(item => item != null && item.gameObject.activeSelf && !item.IsCollecting &&
-                FlatDistance(player.position, item.transform.position) <= Mathf.Max(3.2f, item.Definition != null ? item.Definition.interactionRange : 3.2f) &&
-                Mathf.Abs(player.position.y - item.transform.position.y) < 3.5f)
+                FlatDistance(player.position, item.transform.position) <= 4.5f &&
+                Mathf.Abs(player.position.y - item.transform.position.y) < 4.0f)
                 .OrderBy(item => FlatDistance(player.position, item.transform.position)).FirstOrDefault();
         }
 
@@ -158,42 +168,33 @@ namespace Robot.ObjectHunt
 
         private void SelectOne(TargetCategory category)
         {
-            List<TargetDefinition> choices = targets.Where(item => item != null && item.category == category && item.prefab != null).ToList();
-            if (choices.Count > 0) selectedTargets.Add(choices[UnityEngine.Random.Range(0, choices.Count)]);
+            List<TargetDefinition> pool = targets.Where(item => item.category == category).ToList();
+            if (pool.Count == 0) return;
+            selectedTargets.Add(pool[UnityEngine.Random.Range(0, pool.Count)]);
         }
 
         private List<Vector3> FindSpawnPositions(int count)
         {
-            NavMeshTriangulation mesh = NavMesh.CalculateTriangulation();
+            var result = new List<Vector3>();
+            NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
+            if (triangulation.vertices == null || triangulation.vertices.Length == 0) return result;
+
             var candidates = new List<Vector3>();
-            if (!NavMesh.SamplePosition(player.position, out NavMeshHit playerNavHit, 8f, NavMesh.AllAreas))
+            for (int i = 0; i < triangulation.vertices.Length; i++)
             {
-                Debug.LogError("[Object Hunt] Player is not near the baked NavMesh.");
-                return candidates;
+                if (NavMesh.SamplePosition(triangulation.vertices[i], out NavMeshHit hit, 2.5f, NavMesh.AllAreas))
+                    candidates.Add(hit.position);
             }
-            for (int i = 0; i + 2 < mesh.indices.Length; i += 3)
+
+            for (int i = 0; i < candidates.Count; i++)
             {
-                Vector3 point = (mesh.vertices[mesh.indices[i]] + mesh.vertices[mesh.indices[i + 1]] + mesh.vertices[mesh.indices[i + 2]]) / 3f;
-                if (!NavMesh.SamplePosition(point, out NavMeshHit hit, navMeshSampleRadius, NavMesh.AllAreas)) continue;
-                point = hit.position;
-                if (Mathf.Abs(point.y - player.position.y) > 5f || FlatDistance(point, player.position) < minimumPlayerSpawnDistance) continue;
-                if (Physics.CheckSphere(point + Vector3.up * 0.45f, 0.32f, ~0, QueryTriggerInteraction.Ignore)) continue;
-                if (candidates.Any(existing => FlatDistance(existing, point) < 8f)) continue;
-                var path = new NavMeshPath();
-                if (!NavMesh.CalculatePath(playerNavHit.position, point, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) continue;
-                candidates.Add(point);
-            }
-            // Randomize first, then enforce spacing. This avoids always favoring one side of the triangulation.
-            for (int i = candidates.Count - 1; i > 0; i--)
-            {
-                int swap = UnityEngine.Random.Range(0, i + 1);
+                int swap = UnityEngine.Random.Range(i, candidates.Count);
                 (candidates[i], candidates[swap]) = (candidates[swap], candidates[i]);
             }
-            var result = new List<Vector3>();
+
             SelectSpacedCandidates(candidates, result, count, minimumTargetSpacing);
             if (result.Count < count)
             {
-                // Large spacing is a preference, not a reason to prevent the round from starting.
                 SelectSpacedCandidates(candidates, result, count, Mathf.Max(10f, minimumTargetSpacing * 0.5f));
             }
             return result;
@@ -211,44 +212,33 @@ namespace Robot.ObjectHunt
 
         private void SpawnTarget(TargetDefinition definition, Vector3 position)
         {
-            // Sample exact ground height with physical raycast
+            // Sample exact physical ground height with vertical raycast
             Vector3 groundPos = position;
-            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 15f, ~0, QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(position + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 25f, ~0, QueryTriggerInteraction.Ignore))
             {
                 groundPos = hit.point;
             }
 
-            // Additional ground clearance: Balls need more offset because of center pivots
-            float extraClearance = definition.category == TargetCategory.Ball ? 0.18f : 0.08f;
-            float targetBottomY = groundPos.y + extraClearance + definition.groundOffset;
+            // Balls have a centered origin (radius ~ 0.22m), so their center must sit at groundPos.y + 0.38m
+            // Other toys have a bottom origin, so their center/origin must sit at groundPos.y + 0.15m
+            float originElevation = definition.category == TargetCategory.Ball ? 0.38f : 0.15f;
+            originElevation += definition.groundOffset;
 
-            GameObject instance = Instantiate(definition.prefab, groundPos + Vector3.up * (extraClearance + definition.groundOffset), Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f), transform);
+            Vector3 spawnWorldPos = new Vector3(groundPos.x, groundPos.y + originElevation, groundPos.z);
+
+            GameObject instance = Instantiate(definition.prefab, spawnWorldPos, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
             instance.name = $"Target_{definition.objectId}";
+
             float spawnScale = definition.category == TargetCategory.ToyCar
                 ? Mathf.Max(1.5f, definition.worldScale)
                 : Mathf.Max(0.1f, definition.worldScale);
-            instance.transform.localScale *= spawnScale;
-
-            PlaceVisualBottomOnGround(instance, targetBottomY);
+            instance.transform.localScale = Vector3.one * spawnScale;
+            instance.transform.position = spawnWorldPos;
 
             CollectibleTarget collectible = instance.GetComponent<CollectibleTarget>();
             if (collectible == null) collectible = instance.AddComponent<CollectibleTarget>();
             collectible.Configure(this, definition);
             activeTargets.Add(collectible);
-        }
-
-        private static void PlaceVisualBottomOnGround(GameObject instance, float targetBottomY)
-        {
-            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
-            if (renderers.Length == 0) return;
-
-            Bounds visualBounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++) visualBounds.Encapsulate(renderers[i].bounds);
-
-            // Align bottom of rendered geometry so it rests visibly above the ground surface
-            float currentBottom = visualBounds.min.y;
-            float shift = targetBottomY - currentBottom;
-            instance.transform.position += Vector3.up * shift;
         }
 
         private void FailRound()

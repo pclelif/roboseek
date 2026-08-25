@@ -26,13 +26,17 @@ namespace Robot.ObjectHunt
                 body.isKinematic = true;
                 body.useGravity = false;
             }
+            foreach (Collider col in GetComponentsInChildren<Collider>())
+            {
+                col.isTrigger = true;
+            }
         }
 
         private void Update()
         {
             if (collecting) return;
-            transform.position = basePosition + Vector3.up * (0.22f + Mathf.Sin(Time.time * 2.5f) * 0.10f);
-            transform.Rotate(0f, 22f * Time.deltaTime, 0f, Space.World);
+            transform.position = basePosition + Vector3.up * (0.18f + Mathf.Sin(Time.time * 2.8f) * 0.08f);
+            transform.Rotate(0f, 35f * Time.deltaTime, 0f, Space.World);
         }
 
         public bool TryCollect(Transform collector, Transform pickupTarget)

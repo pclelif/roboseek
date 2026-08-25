@@ -50,6 +50,16 @@ namespace Robot.Editor
             // Ensure singleplayer player & camera is setup
             SetupRobotPlayer.SetupPlayerInActiveScene();
 
+            // Ensure Object Hunt system is installed and configured
+            try
+            {
+                SetupPhase4Combat.SetupObjectHuntInDemoScene();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[Phase 9 Singleplayer] Object Hunt setup notice: " + ex.Message);
+            }
+
             // Add GameModeSelectionUI if not present
             GameObject hudRoot = GameObject.Find("HUD_GameMode");
             if (hudRoot == null)
