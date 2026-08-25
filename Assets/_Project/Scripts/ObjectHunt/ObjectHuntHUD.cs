@@ -64,10 +64,18 @@ namespace Robot.ObjectHunt
 
         private void Update()
         {
-            CollectibleTarget nearest = manager.GetNearestInteractable();
-            prompt.gameObject.SetActive(nearest != null);
-            if (nearest != null) prompt.text = "E   PICK UP";
-            if (gameLoop != null && gameLoop.CurrentPhase == RoundPhase.Result && UnityEngine.Input.GetKeyDown(KeyCode.Return))
+            CollectibleTarget nearest = manager != null ? manager.GetNearestInteractable() : null;
+            if (prompt != null)
+            {
+                bool show = nearest != null && !nearest.IsCollecting;
+                prompt.gameObject.SetActive(show);
+                if (show)
+                {
+                    string targetName = nearest.Definition != null ? nearest.Definition.displayName.ToUpper() : "OYUNCAK";
+                    prompt.text = $"<b>[E]</b>  {targetName} TOPLA";
+                }
+            }
+            if (gameLoop != null && gameLoop.CurrentPhase == RoundPhase.Result && (UnityEngine.Input.GetKeyDown(KeyCode.Return) || UnityEngine.Input.GetKeyDown(KeyCode.Space)))
                 gameLoop.StartNextRound();
         }
 
@@ -309,7 +317,8 @@ namespace Robot.ObjectHunt
             nextRoundButton.onClick.AddListener(() => gameLoop?.StartNextRound());
             nextRoundButton.gameObject.SetActive(false);
             resultPanel.SetActive(false);
-            prompt = Label("E   PICK UP", canvas.transform, 20, new Vector2(0f, -150f), new Vector2(240f, 45f));
+            prompt = Label("<b>[E]</b>  TOPLA", canvas.transform, 22, new Vector2(0f, -140f), new Vector2(340f, 50f));
+            prompt.supportRichText = true;
             prompt.rectTransform.anchorMin = prompt.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             prompt.gameObject.SetActive(false);
             trackerPanel.SetActive(false);

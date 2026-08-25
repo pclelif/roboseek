@@ -12,6 +12,7 @@ namespace Robot.Combat
         private PlayerInputReader input;
         private RobotMovementController movement;
         private CombatHealth health;
+        private Robot.Multiplayer.NetworkRobotPlayer networkPlayer;
 
         [SerializeField, Min(0f)] private float movementLockDuration = 0.7f;
 
@@ -21,12 +22,19 @@ namespace Robot.Combat
             input = GetComponent<PlayerInputReader>();
             movement = GetComponent<RobotMovementController>();
             health = GetComponent<CombatHealth>();
+            networkPlayer = GetComponent<Robot.Multiplayer.NetworkRobotPlayer>();
         }
 
         private void Update()
         {
             if (input.ConsumeAttackPressed() && attack.TryAttack())
+            {
+                if (networkPlayer != null && networkPlayer.IsOwner)
+                {
+                    networkPlayer.TriggerAttackServerRpc();
+                }
                 StartCoroutine(AttackMovementLock());
+            }
         }
 
         private IEnumerator AttackMovementLock()

@@ -4,6 +4,7 @@ using Unity.Netcode;
 using UnityEngine;
 using Robot.Combat;
 using Robot.Input;
+using Robot.Player.CameraControl;
 using Robot.Player.Movement;
 using Robot.Robots.Customization;
 
@@ -90,9 +91,52 @@ namespace Robot.Multiplayer
             RobotMovementController movement = GetComponent<RobotMovementController>();
             PlayerInputReader input = GetComponent<PlayerInputReader>();
             PlayerCombatInput combatInput = GetComponent<PlayerCombatInput>();
-            if (movement != null) movement.SetControlEnabled(localOwner);
+            CharacterController cc = GetComponent<CharacterController>();
+            Robot.UI.HUD.RobotShowcaseUI showcase = GetComponent<Robot.UI.HUD.RobotShowcaseUI>();
+
+            if (cc != null)
+            {
+                // Crucial for NGO: Disable CharacterController on non-owners so NetworkTransform can interpolate positions smoothly without fighting physics
+                cc.enabled = localOwner;
+            }
+
+            if (movement != null)
+            {
+                movement.SetControlEnabled(localOwner);
+                if (localOwner && Camera.main != null)
+                {
+                    movement.SetCameraTransform(Camera.main.transform);
+                }
+            }
+
             if (input != null) input.enabled = localOwner;
             if (combatInput != null) combatInput.enabled = localOwner;
+            if (showcase != null) showcase.enabled = localOwner;
+
+            if (localOwner)
+            {
+                ThirdPersonCameraController cameraController = UnityEngine.Object.FindFirstObjectByType<ThirdPersonCameraController>();
+                if (cameraController != null)
+                {
+                    cameraController.SetTarget(transform);
+                }
+            }
+        }
+
+        [Rpc(SendTo.Server)]
+        public void TriggerAttackServerRpc()
+        {
+            TriggerAttackClientRpc();
+        }
+
+        [Rpc(SendTo.NotServer)]
+        private void TriggerAttackClientRpc()
+        {
+            if (!IsOwner)
+            {
+                Robot.Player.RobotAnimator anim = GetComponent<Robot.Player.RobotAnimator>();
+                if (anim != null) anim.PlayAttack();
+            }
         }
 
         private void HandleColorChanged(int _, int current) { ApplyColor(current); ColorChanged?.Invoke(current); }

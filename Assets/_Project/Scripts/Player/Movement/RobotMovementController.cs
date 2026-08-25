@@ -32,18 +32,23 @@ namespace Robot.Player.Movement
         private float currentSpeed;
         private bool controlEnabled = true;
 
-        public bool IsGrounded { get; private set; }
+        private Vector3 lastProxyPosition;
+
+        public bool IsGrounded { get; private set; } = true;
         public float CurrentSpeedNormalized { get; private set; }
         public float VerticalVelocity => verticalVelocity;
+        public bool ControlEnabled => controlEnabled;
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
             input = GetComponent<PlayerInputReader>();
+            lastProxyPosition = transform.position;
         }
 
         private void Start()
         {
+            lastProxyPosition = transform.position;
             EnsureCameraReference();
         }
 
@@ -51,12 +56,38 @@ namespace Robot.Player.Movement
         {
             if (!controlEnabled)
             {
-                CurrentSpeedNormalized = 0f;
+                UpdateProxyLocomotion();
                 return;
             }
             EnsureCameraReference();
             UpdateVerticalVelocity();
             Move();
+            lastProxyPosition = transform.position;
+        }
+
+        private void UpdateProxyLocomotion()
+        {
+            float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+            Vector3 displacement = transform.position - lastProxyPosition;
+            lastProxyPosition = transform.position;
+
+            Vector3 velocity = displacement / dt;
+            float horizontalSpeed = new Vector2(velocity.x, velocity.z).magnitude;
+
+            float targetNormalized = runSpeed > 0.01f ? Mathf.Clamp01(horizontalSpeed / runSpeed) : 0f;
+            CurrentSpeedNormalized = Mathf.MoveTowards(CurrentSpeedNormalized, targetNormalized, acceleration * dt);
+            verticalVelocity = velocity.y;
+
+            // Ground raycast check to ensure remote robot doesn't get stuck in Jump_Air state
+            bool hitGround = Physics.Raycast(transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 0.85f, ~0, QueryTriggerInteraction.Ignore);
+            if (hitGround)
+            {
+                IsGrounded = (transform.position.y - hit.point.y) < 0.35f || Mathf.Abs(verticalVelocity) < 1.0f;
+            }
+            else
+            {
+                IsGrounded = Mathf.Abs(verticalVelocity) < 0.25f;
+            }
         }
 
         public void SetCameraTransform(Transform value)

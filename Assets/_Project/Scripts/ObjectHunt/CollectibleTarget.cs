@@ -31,7 +31,7 @@ namespace Robot.ObjectHunt
         private void Update()
         {
             if (collecting) return;
-            transform.position = basePosition + Vector3.up * (0.12f + Mathf.Sin(Time.time * 2.2f) * 0.08f);
+            transform.position = basePosition + Vector3.up * (0.22f + Mathf.Sin(Time.time * 2.5f) * 0.10f);
             transform.Rotate(0f, 22f * Time.deltaTime, 0f, Space.World);
         }
 

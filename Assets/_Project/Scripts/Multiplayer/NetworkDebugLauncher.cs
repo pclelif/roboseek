@@ -22,13 +22,27 @@ namespace Robot.Multiplayer
         private void OnGUI()
         {
             NetworkManager manager = NetworkManager.Singleton;
-            if (!showDebugControls || manager == null || manager.IsListening) return;
-            GUILayout.BeginArea(new Rect(12, 12, 180, 145), GUI.skin.box);
-            GUILayout.Label("FAZ 8 Network Test");
-            if (GUILayout.Button("Start Host")) manager.StartHost();
-            if (GUILayout.Button("Start Client")) manager.StartClient();
-            if (GUILayout.Button("Start Server")) manager.StartServer();
-            GUILayout.EndArea();
+            if (!showDebugControls || manager == null) return;
+
+            if (!manager.IsListening)
+            {
+                GUILayout.BeginArea(new Rect(16, 16, 190, 150), GUI.skin.box);
+                GUILayout.Label("<b>🌐 MULTIPLAYER (Demo2)</b>");
+                GUILayout.Space(6);
+                if (GUILayout.Button("Host Olarak Başlat (1)", GUILayout.Height(32))) manager.StartHost();
+                if (GUILayout.Button("Client Olarak Katıl (2)", GUILayout.Height(32))) manager.StartClient();
+                if (GUILayout.Button("Server Başlat", GUILayout.Height(24))) manager.StartServer();
+                GUILayout.EndArea();
+            }
+            else
+            {
+                GUILayout.BeginArea(new Rect(16, 16, 210, 85), GUI.skin.box);
+                string role = manager.IsHost ? "HOST (Server + Client)" : manager.IsServer ? "DEDICATED SERVER" : "CLIENT";
+                GUILayout.Label($"<b>🌐 Durum:</b> {role}");
+                GUILayout.Label($"<b>Bağlı Oyuncular:</b> {manager.ConnectedClientsList.Count} / 4");
+                if (GUILayout.Button("Bağlantıyı Kes", GUILayout.Height(24))) manager.Shutdown();
+                GUILayout.EndArea();
+            }
         }
     }
 }

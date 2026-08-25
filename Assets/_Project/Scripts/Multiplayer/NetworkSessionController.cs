@@ -19,6 +19,13 @@ namespace Robot.Multiplayer
             manager.ConnectionApprovalCallback = ApproveConnection;
             manager.OnClientConnectedCallback += HandleConnected;
             manager.OnClientDisconnectCallback += HandleDisconnected;
+            manager.OnServerStarted += CleanupStaticSinglePlayers;
+            manager.OnClientStarted += CleanupStaticSinglePlayers;
+        }
+
+        private void Start()
+        {
+            CleanupStaticSinglePlayers();
         }
 
         private void OnDestroy()
@@ -27,22 +34,57 @@ namespace Robot.Multiplayer
             manager.ConnectionApprovalCallback = null;
             manager.OnClientConnectedCallback -= HandleConnected;
             manager.OnClientDisconnectCallback -= HandleDisconnected;
+            manager.OnServerStarted -= CleanupStaticSinglePlayers;
+            manager.OnClientStarted -= CleanupStaticSinglePlayers;
+        }
+
+        private void CleanupStaticSinglePlayers()
+        {
+            var movements = FindObjectsByType<Robot.Player.Movement.RobotMovementController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var m in movements)
+            {
+                if (m != null && m.GetComponent<NetworkObject>() == null)
+                {
+                    Debug.Log($"[NetworkSessionController] Removed static single-player object '{m.gameObject.name}' to prevent duplicate spawn in multiplayer.");
+                    Destroy(m.gameObject);
+                }
+            }
         }
 
         private static void ApproveConnection(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
         {
-            response.Approved = true;
-            response.CreatePlayerObject = true;
             response.Pending = false;
-            if (SpawnPointManager.Instance != null && SpawnPointManager.Instance.TryReserve(request.ClientNetworkId, out Pose pose))
+
+            if (SpawnPointManager.Instance != null)
             {
-                response.Position = pose.position;
-                response.Rotation = pose.rotation;
+                if (SpawnPointManager.Instance.TryReserve(request.ClientNetworkId, out Pose pose, out int slotIndex))
+                {
+                    response.Approved = true;
+                    response.CreatePlayerObject = true;
+                    response.Position = pose.position;
+                    response.Rotation = pose.rotation;
+                    Debug.Log($"[NetworkSessionController] Approved connection for Client {request.ClientNetworkId} at SpawnPoint index {slotIndex} ({pose.position}).");
+                }
+                else
+                {
+                    response.Approved = false;
+                    response.CreatePlayerObject = false;
+                    response.Reason = "Sunucu dolu: Tüm spawn noktaları kullanımda (Maksimum 4 oyuncu).";
+                    Debug.LogWarning($"[NetworkSessionController] Rejected connection for Client {request.ClientNetworkId}: No available spawn points.");
+                }
             }
             else
             {
-                response.Approved = false;
-                response.Reason = "No safe spawn point is available";
+                Vector3 fallback = new Vector3((request.ClientNetworkId % 4) * 3f - 4.5f, 0.1f, 0f);
+                if (Physics.Raycast(fallback + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 30f))
+                {
+                    fallback = hit.point + Vector3.up * 0.05f;
+                }
+                response.Approved = true;
+                response.CreatePlayerObject = true;
+                response.Position = fallback;
+                response.Rotation = Quaternion.identity;
+                Debug.Log($"[NetworkSessionController] Approved connection for Client {request.ClientNetworkId} using fallback grounded position {fallback}.");
             }
         }
 

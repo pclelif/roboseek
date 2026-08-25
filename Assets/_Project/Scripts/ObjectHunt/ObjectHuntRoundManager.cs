@@ -51,11 +51,14 @@ namespace Robot.ObjectHunt
 
         private void Update()
         {
+            if (player == null || input == null) ResolvePlayer();
             if (!roundActive) return;
             timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
             TimerChanged?.Invoke(timeRemaining);
             if (timeRemaining <= 0f) FailRound();
-            if (input != null && input.ConsumeInteractPressed()) TryPickupNearest();
+
+            bool interactPressed = (input != null && input.ConsumeInteractPressed()) || UnityEngine.Input.GetKeyDown(KeyCode.E);
+            if (interactPressed) TryPickupNearest();
         }
 
         public void BeginRound()
@@ -95,27 +98,28 @@ namespace Robot.ObjectHunt
 
         public bool TryPickupNearest()
         {
-            if (!roundActive || player == null) return false;
+            if (player == null) ResolvePlayer();
+            if (player == null) return false;
             CombatHealth health = player.GetComponent<CombatHealth>();
             if (health != null && health.IsKnockedOut) return false;
-            CollectibleTarget nearest = activeTargets
-                .Where(item => item != null && item.gameObject.activeSelf && !item.IsCollecting)
-                .OrderBy(item => Vector3.Distance(player.position, item.transform.position)).FirstOrDefault();
-            if (nearest == null || Vector3.Distance(player.position, nearest.transform.position) > nearest.Definition.interactionRange) return false;
+            CollectibleTarget nearest = GetNearestInteractable();
+            if (nearest == null) return false;
             return nearest.TryCollect(player, pickupTarget);
         }
 
         public CollectibleTarget GetNearestInteractable()
         {
-            if (!roundActive || player == null) return null;
+            if (player == null) ResolvePlayer();
+            if (player == null) return null;
             return activeTargets.Where(item => item != null && item.gameObject.activeSelf && !item.IsCollecting &&
-                Vector3.Distance(player.position, item.transform.position) <= item.Definition.interactionRange)
-                .OrderBy(item => Vector3.Distance(player.position, item.transform.position)).FirstOrDefault();
+                FlatDistance(player.position, item.transform.position) <= Mathf.Max(3.2f, item.Definition != null ? item.Definition.interactionRange : 3.2f) &&
+                Mathf.Abs(player.position.y - item.transform.position.y) < 3.5f)
+                .OrderBy(item => FlatDistance(player.position, item.transform.position)).FirstOrDefault();
         }
 
         internal void NotifyCollected(CollectibleTarget collectible)
         {
-            if (!roundActive || collectible == null) return;
+            if (collectible == null) return;
             CollectedCount++;
             collectedTargets.Add(collectible.Definition);
             TargetCollected?.Invoke(collectible.Definition, CollectedCount);
@@ -131,10 +135,16 @@ namespace Robot.ObjectHunt
             if (player == null)
             {
                 GameObject found = GameObject.FindGameObjectWithTag("Player");
+                if (found == null) found = GameObject.Find("RobotPlayer");
+                if (found == null)
+                {
+                    var rmc = UnityEngine.Object.FindFirstObjectByType<Robot.Player.Movement.RobotMovementController>();
+                    if (rmc != null) found = rmc.gameObject;
+                }
                 if (found != null) player = found.transform;
             }
             if (player == null) return false;
-            input = player.GetComponent<PlayerInputReader>();
+            if (input == null) input = player.GetComponent<PlayerInputReader>();
             pickupTarget = player.Find("PickupTarget");
             if (pickupTarget == null)
             {
@@ -201,20 +211,33 @@ namespace Robot.ObjectHunt
 
         private void SpawnTarget(TargetDefinition definition, Vector3 position)
         {
-            GameObject instance = Instantiate(definition.prefab, position + Vector3.up * definition.groundOffset, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f), transform);
+            // Sample exact ground height with physical raycast
+            Vector3 groundPos = position;
+            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 15f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                groundPos = hit.point;
+            }
+
+            // Additional ground clearance: Balls need more offset because of center pivots
+            float extraClearance = definition.category == TargetCategory.Ball ? 0.18f : 0.08f;
+            float targetBottomY = groundPos.y + extraClearance + definition.groundOffset;
+
+            GameObject instance = Instantiate(definition.prefab, groundPos + Vector3.up * (extraClearance + definition.groundOffset), Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f), transform);
             instance.name = $"Target_{definition.objectId}";
             float spawnScale = definition.category == TargetCategory.ToyCar
                 ? Mathf.Max(1.5f, definition.worldScale)
                 : Mathf.Max(0.1f, definition.worldScale);
             instance.transform.localScale *= spawnScale;
-            PlaceVisualBottomOnGround(instance, position.y + definition.groundOffset);
+
+            PlaceVisualBottomOnGround(instance, targetBottomY);
+
             CollectibleTarget collectible = instance.GetComponent<CollectibleTarget>();
             if (collectible == null) collectible = instance.AddComponent<CollectibleTarget>();
             collectible.Configure(this, definition);
             activeTargets.Add(collectible);
         }
 
-        private static void PlaceVisualBottomOnGround(GameObject instance, float groundY)
+        private static void PlaceVisualBottomOnGround(GameObject instance, float targetBottomY)
         {
             Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length == 0) return;
@@ -222,9 +245,10 @@ namespace Robot.ObjectHunt
             Bounds visualBounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++) visualBounds.Encapsulate(renderers[i].bounds);
 
-            // Imported props use different pivots (many balls use a centre pivot). Aligning
-            // their actual rendered bottom makes every target sit on the sampled ground.
-            instance.transform.position += Vector3.up * (groundY - visualBounds.min.y);
+            // Align bottom of rendered geometry so it rests visibly above the ground surface
+            float currentBottom = visualBounds.min.y;
+            float shift = targetBottomY - currentBottom;
+            instance.transform.position += Vector3.up * shift;
         }
 
         private void FailRound()

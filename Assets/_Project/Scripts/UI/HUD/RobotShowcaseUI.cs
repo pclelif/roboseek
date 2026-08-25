@@ -51,10 +51,22 @@ namespace Robot.UI.HUD
 
         private void Update()
         {
+            if (!ShouldHandleUI()) return;
+
             if (IsChangeColorKeyPressed())
             {
                 TriggerNextColor();
             }
+        }
+
+        private bool ShouldHandleUI()
+        {
+            var netObj = GetComponent<Unity.Netcode.NetworkObject>();
+            if (netObj != null)
+            {
+                if (!netObj.IsSpawned || !netObj.IsOwner) return false;
+            }
+            return true;
         }
 
         public void TriggerNextColor()
@@ -92,6 +104,8 @@ namespace Robot.UI.HUD
 
         private void OnGUI()
         {
+            if (!ShouldHandleUI()) return;
+
             // On-Screen Control & Status Box
             GUILayout.BeginArea(new Rect(20, 20, 340, 280), GetPanelStyle());
             

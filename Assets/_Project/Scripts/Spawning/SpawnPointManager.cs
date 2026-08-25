@@ -36,34 +36,90 @@ namespace Robot.Spawning
 
         public bool TryReserve(ulong entityId, out Pose pose)
         {
-            Release(entityId);
-            int start = points.Count > 0 ? (int)(entityId % (ulong)points.Count) : 0;
-            for (int offset = 0; offset < points.Count; offset++)
+            return TryReserve(entityId, out pose, out _);
+        }
+
+        public bool TryReserve(ulong entityId, out Pose pose, out int assignedIndex)
+        {
+            // If already reserved by this entity, return that pose
+            for (int i = 0; i < points.Count; i++)
             {
-                SpawnPoint point = points[(start + offset) % points.Count];
+                if (points[i].occupant == entityId && points[i].transform != null)
+                {
+                    assignedIndex = i;
+                    pose = new Pose(points[i].transform.position, points[i].transform.rotation);
+                    return true;
+                }
+            }
+
+            // Find first free slot in order (SpawnPoint_01, then _02, then _03, then _04)
+            for (int i = 0; i < points.Count; i++)
+            {
+                SpawnPoint point = points[i];
+                if (point.transform == null) continue;
+                if (point.occupant.HasValue) continue;
+
                 if (!IsSafe(point)) continue;
+
                 point.occupant = entityId;
+                assignedIndex = i;
                 pose = new Pose(point.transform.position, point.transform.rotation);
+                Debug.Log($"[SpawnPointManager] Reserved {point.id} (index {i}) for client {entityId} at {pose.position}.");
                 return true;
             }
+
+            assignedIndex = -1;
             pose = default;
+            Debug.LogWarning($"[SpawnPointManager] No available SpawnPoint found for client {entityId}. Total points: {points.Count}.");
             return false;
         }
 
         public void Release(ulong entityId)
         {
-            foreach (SpawnPoint point in points) if (point.occupant == entityId) point.occupant = null;
+            for (int i = 0; i < points.Count; i++)
+            {
+                if (points[i].occupant == entityId)
+                {
+                    Debug.Log($"[SpawnPointManager] Released {points[i].id} (index {i}) from client {entityId}. Slot is now FREE.");
+                    points[i].occupant = null;
+                }
+            }
+        }
+
+        public bool IsOccupied(int index)
+        {
+            if (index < 0 || index >= points.Count) return false;
+            return points[index].occupant.HasValue;
+        }
+
+        public ulong? GetOccupant(int index)
+        {
+            if (index < 0 || index >= points.Count) return null;
+            return points[index].occupant;
+        }
+
+        public int GetAvailableCount()
+        {
+            int count = 0;
+            foreach (var p in points) if (p.transform != null && !p.occupant.HasValue) count++;
+            return count;
         }
 
         public bool IsSafe(SpawnPoint point)
         {
             if (point == null || point.transform == null || point.occupant.HasValue) return false;
             foreach (SpawnPoint other in points)
-                if (other != point && other.occupant.HasValue && Vector3.Distance(other.transform.position, point.transform.position) < minimumSpawnDistance) return false;
+            {
+                if (other != point && other.occupant.HasValue && other.transform != null &&
+                    Vector3.Distance(other.transform.position, point.transform.position) < minimumSpawnDistance)
+                {
+                    return false;
+                }
+            }
 
-            Vector3 bottom = point.transform.position + Vector3.up * collisionRadius;
-            Vector3 top = point.transform.position + Vector3.up * Mathf.Max(collisionRadius, collisionHeight - collisionRadius);
-            return !Physics.CheckCapsule(bottom, top, collisionRadius, blockingLayers, QueryTriggerInteraction.Ignore);
+            Vector3 bottom = point.transform.position + Vector3.up * (collisionRadius + 0.08f);
+            Vector3 top = point.transform.position + Vector3.up * Mathf.Max(collisionRadius + 0.15f, collisionHeight - collisionRadius);
+            return !Physics.CheckCapsule(bottom, top, collisionRadius * 0.85f, blockingLayers, QueryTriggerInteraction.Ignore);
         }
     }
 }
