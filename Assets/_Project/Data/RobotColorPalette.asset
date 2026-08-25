@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82b4ac4a3af9e411f91dc8dc4e1c7ef8, type: 3}
+  m_Name: RobotColorPalette
+  m_EditorClassIdentifier: Assembly-CSharp::Robot.Robots.Customization.RobotColorPalette
+  colors:
+  - id: Black
+    displayName: Black
+    bodyColor: {r: 0.31, g: 0.31, b: 0.31, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Red
+    displayName: Red
+    bodyColor: {r: 0.75, g: 0.16, b: 0.16, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Orange
+    displayName: Orange
+    bodyColor: {r: 0.92, g: 0.4, b: 0.1, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Yellow
+    displayName: Yellow
+    bodyColor: {r: 0.95, g: 0.78, b: 0.12, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Green
+    displayName: Green
+    bodyColor: {r: 0.18, g: 0.68, b: 0.3, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Blue
+    displayName: Blue
+    bodyColor: {r: 0.16, g: 0.38, b: 0.88, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Purple
+    displayName: Purple
+    bodyColor: {r: 0.55, g: 0.23, b: 0.78, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Pink
+    displayName: Pink
+    bodyColor: {r: 0.9, g: 0.32, b: 0.58, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: Brown
+    displayName: Brown
+    bodyColor: {r: 0.45, g: 0.25, b: 0.12, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+  - id: White
+    displayName: White
+    bodyColor: {r: 0.86, g: 0.86, b: 0.86, a: 1}
+    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}

@@ -73,6 +73,23 @@ namespace Robot.NPC
 
         private void AssignUniqueNpcColors()
         {
+            if (RobotColorService.Instance != null && RobotColorService.Instance.Palette != null)
+            {
+                int excludedIndex = playerColors != null ? Mathf.Max(0, playerColors.ActivePaletteIndex) : RobotColorService.Instance.LoadSinglePlayerSelection();
+                var indices = new List<int>(RobotColorService.Instance.GetAvailableIndices(excludedIndex));
+                for (int i = indices.Count - 1; i > 0; i--)
+                {
+                    int swap = UnityEngine.Random.Range(0, i + 1);
+                    (indices[i], indices[swap]) = (indices[swap], indices[i]);
+                }
+                for (int i = 0; i < spawned.Count && i < indices.Count; i++)
+                {
+                    RobotColorCustomizer colors = spawned[i].GetComponent<RobotColorCustomizer>();
+                    colors?.ApplyPaletteIndex(indices[i]);
+                }
+                return;
+            }
+
             RobotColorCustomizer.ColorTheme excluded = playerColors != null ? playerColors.ActiveTheme : RobotColorCustomizer.ColorTheme.Siyah;
             var available = new List<RobotColorCustomizer.ColorTheme>((RobotColorCustomizer.ColorTheme[])Enum.GetValues(typeof(RobotColorCustomizer.ColorTheme)));
             available.Remove(excluded);

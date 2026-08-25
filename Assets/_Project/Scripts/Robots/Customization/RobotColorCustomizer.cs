@@ -36,6 +36,7 @@ namespace Robot.Robots.Customization
         }
 
         [Header("Configuration")]
+        [SerializeField] private RobotColorPalette palette;
         [SerializeField] private ColorTheme activeTheme = ColorTheme.Siyah; // Starts Siyah as requested!
         [SerializeField] private EyeColorMode eyeMode = EyeColorMode.SleekBlack;
         [SerializeField] private List<Renderer> targetRenderers = new List<Renderer>();
@@ -126,6 +127,7 @@ namespace Robot.Robots.Customization
         public string ActiveThemeName => GetPreset(activeTheme).name;
         public Color ActiveThemeColor => GetPreset(activeTheme).bodyColor;
         public event Action<ColorTheme> ThemeChanged;
+        public int ActivePaletteIndex { get; private set; } = -1;
 
         private void Awake()
         {
@@ -138,7 +140,11 @@ namespace Robot.Robots.Customization
         private void Start()
         {
             EnsureUrpMaterials();
-            ApplyTheme(activeTheme);
+            if (palette == null && RobotColorService.Instance != null) palette = RobotColorService.Instance.Palette;
+            int initialIndex = CompareTag("Player")
+                ? PlayerPrefs.GetInt(RobotColorService.PlayerPreferenceKey, (int)activeTheme) : (int)activeTheme;
+            if (palette != null) ApplyPaletteIndex(initialIndex);
+            else ApplyTheme(activeTheme);
         }
 
         private void EnsureUrpMaterials()
@@ -222,11 +228,62 @@ namespace Robot.Robots.Customization
             if (changed) ThemeChanged?.Invoke(activeTheme);
         }
 
+        public void ApplyPaletteIndex(int index)
+        {
+            if (palette == null && RobotColorService.Instance != null) palette = RobotColorService.Instance.Palette;
+            if (palette == null || !palette.TryGet(index, out RobotColorPalette.Entry entry)) return;
+            bool changed = ActivePaletteIndex != index;
+            ActivePaletteIndex = index;
+            activeTheme = (ColorTheme)Mathf.Clamp(index, 0, Enum.GetValues(typeof(ColorTheme)).Length - 1);
+            ApplyColors(entry.bodyColor, entry.jointColor);
+            if (changed) ThemeChanged?.Invoke(activeTheme);
+        }
+
+        public void SelectSinglePlayerColor(int index)
+        {
+            ApplyPaletteIndex(index);
+            PlayerPrefs.SetInt(RobotColorService.PlayerPreferenceKey, index);
+            PlayerPrefs.Save();
+        }
+
+        public void SetPalette(RobotColorPalette value) => palette = value;
+
+        private void ApplyColors(Color bodyColor, Color jointColor)
+        {
+            if (targetRenderers == null || targetRenderers.Count == 0)
+            {
+                targetRenderers = new List<Renderer>();
+                GetComponentsInChildren(true, targetRenderers);
+            }
+            Color eyesColor = eyeMode == EyeColorMode.SleekBlack ? new Color(0.04f, 0.04f, 0.05f) : bodyColor;
+            foreach (Renderer ren in targetRenderers)
+            {
+                if (ren == null) continue;
+                foreach (Material mat in ren.materials)
+                {
+                    if (mat == null) continue;
+                    string matName = mat.name;
+                    Color applied = matName.Contains("Base") && !matName.Contains("Offset") ? jointColor :
+                        matName.Contains("Emissive") ? eyesColor : bodyColor;
+                    if (mat.HasProperty(BaseColorHash)) mat.SetColor(BaseColorHash, applied);
+                    if (mat.HasProperty(ColorHash)) mat.SetColor(ColorHash, applied);
+                    if (mat.HasProperty(EmissionColorHash)) mat.SetColor(EmissionColorHash, Color.black);
+                }
+            }
+        }
+
         public void NextTheme()
         {
+            if (palette != null && palette.Count > 0)
+            {
+                SelectSinglePlayerColor((Mathf.Max(0, ActivePaletteIndex) + 1) % palette.Count);
+                return;
+            }
             int totalThemes = Enum.GetValues(typeof(ColorTheme)).Length;
             int nextIndex = ((int)activeTheme + 1) % totalThemes;
             ApplyTheme((ColorTheme)nextIndex);
+            PlayerPrefs.SetInt(RobotColorService.PlayerPreferenceKey, nextIndex);
+            PlayerPrefs.Save();
         }
 
         private ColorPreset GetPreset(ColorTheme theme)

@@ -399,6 +399,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 38a03e8916e6438d9697868769f009b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  palette: {fileID: 11400000, guid: 42b2c4d77e5604656b6be91077cd0807, type: 2}
   activeTheme: 0
   eyeMode: 0
   targetRenderers: []
