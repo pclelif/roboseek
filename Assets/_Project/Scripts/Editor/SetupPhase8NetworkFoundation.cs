@@ -47,26 +47,26 @@ namespace Robot.Editor
             palette.SetEntries(new[]
             {
                 Entry("Black", "Black", 0.31f, 0.31f, 0.31f),
-                Entry("Red", "Red", 0.75f, 0.16f, 0.16f),
-                Entry("Orange", "Orange", 0.92f, 0.40f, 0.10f),
-                Entry("Yellow", "Yellow", 0.95f, 0.78f, 0.12f),
-                Entry("Green", "Green", 0.18f, 0.68f, 0.30f),
-                Entry("Blue", "Blue", 0.16f, 0.38f, 0.88f),
-                Entry("Purple", "Purple", 0.55f, 0.23f, 0.78f),
-                Entry("Pink", "Pink", 0.90f, 0.32f, 0.58f),
-                Entry("Brown", "Brown", 0.45f, 0.25f, 0.12f),
-                Entry("White", "White", 0.86f, 0.86f, 0.86f)
+                Entry("Red", "Red", 0.62f, 0.24f, 0.24f),
+                Entry("Orange", "Orange", 0.75f, 0.45f, 0.28f),
+                Entry("Yellow", "Yellow", 0.78f, 0.68f, 0.38f),
+                Entry("Green", "Green", 0.38f, 0.55f, 0.45f),
+                Entry("Blue", "Blue", 0.35f, 0.45f, 0.65f),
+                Entry("Purple", "Purple", 0.50f, 0.35f, 0.55f),
+                Entry("Pink", "Pink", 0.72f, 0.42f, 0.52f),
+                Entry("Brown", "Brown", 0.48f, 0.32f, 0.22f),
+                Entry("White", "White", 0.80f, 0.80f, 0.80f, 0.16f)
             });
             EditorUtility.SetDirty(palette);
             return palette;
         }
 
-        private static RobotColorPalette.Entry Entry(string id, string name, float r, float g, float b)
+        private static RobotColorPalette.Entry Entry(string id, string name, float r, float g, float b, float joint = 0.14f)
         {
             return new RobotColorPalette.Entry
             {
                 id = id, displayName = name, bodyColor = new Color(r, g, b),
-                jointColor = new Color(0.12f, 0.12f, 0.14f)
+                jointColor = new Color(joint, joint, joint)
             };
         }
 

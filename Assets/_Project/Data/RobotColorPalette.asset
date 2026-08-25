@@ -16,40 +16,40 @@ MonoBehaviour:
   - id: Black
     displayName: Black
     bodyColor: {r: 0.31, g: 0.31, b: 0.31, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Red
     displayName: Red
-    bodyColor: {r: 0.75, g: 0.16, b: 0.16, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.62, g: 0.24, b: 0.24, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Orange
     displayName: Orange
-    bodyColor: {r: 0.92, g: 0.4, b: 0.1, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.75, g: 0.45, b: 0.28, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Yellow
     displayName: Yellow
-    bodyColor: {r: 0.95, g: 0.78, b: 0.12, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.78, g: 0.68, b: 0.38, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Green
     displayName: Green
-    bodyColor: {r: 0.18, g: 0.68, b: 0.3, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.38, g: 0.55, b: 0.45, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Blue
     displayName: Blue
-    bodyColor: {r: 0.16, g: 0.38, b: 0.88, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.35, g: 0.45, b: 0.65, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Purple
     displayName: Purple
-    bodyColor: {r: 0.55, g: 0.23, b: 0.78, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.5, g: 0.35, b: 0.55, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Pink
     displayName: Pink
-    bodyColor: {r: 0.9, g: 0.32, b: 0.58, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.72, g: 0.42, b: 0.52, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: Brown
     displayName: Brown
-    bodyColor: {r: 0.45, g: 0.25, b: 0.12, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.48, g: 0.32, b: 0.22, a: 1}
+    jointColor: {r: 0.14, g: 0.14, b: 0.14, a: 1}
   - id: White
     displayName: White
-    bodyColor: {r: 0.86, g: 0.86, b: 0.86, a: 1}
-    jointColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    bodyColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
+    jointColor: {r: 0.16, g: 0.16, b: 0.16, a: 1}
