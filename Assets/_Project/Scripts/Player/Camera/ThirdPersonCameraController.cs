@@ -1,11 +1,13 @@
+using Robot.Input;
 using Unity.Cinemachine;
+using Unity.Cinemachine.TargetTracking;
 using UnityEngine;
 
 namespace Robot.Player.CameraControl
 {
     /// <summary>
-    /// Fixed-orientation 3rd-person camera that stays behind and above the robot at a natural exploration angle (15° pitch, 5m distance, 1.2m chest height).
-    /// Mouse look is completely disabled to preserve rock-solid camera stability.
+    /// Cinemachine 3 third-person orbital camera controller with smooth mouse orbit controls.
+    /// Manages Body (CinemachineOrbitalFollow) and Aim (CinemachineHardLookAt) pipeline stages.
     /// </summary>
     [RequireComponent(typeof(CinemachineCamera), typeof(CinemachineOrbitalFollow))]
     public sealed class ThirdPersonCameraController : MonoBehaviour
@@ -14,67 +16,153 @@ namespace Robot.Player.CameraControl
         [SerializeField] private Transform target;
         [SerializeField] private Vector3 targetOffset = new Vector3(0f, 1.2f, 0f);
 
-        [Header("Distance & Pitch Angle")]
+        [Header("Distance & Angles")]
         [SerializeField, Min(0.5f)] private float defaultDistance = 5.0f;
         [SerializeField] private float defaultPitch = 15.0f;
         [SerializeField] private float defaultYaw = 0.0f;
 
+        [Header("Mouse Look Controls")]
+        [SerializeField] private float mouseSensitivityX = 0.25f;
+        [SerializeField] private float mouseSensitivityY = 0.25f;
+        [SerializeField] private bool invertY = false;
+        [SerializeField] private bool lockCursor = true;
+        [SerializeField] private bool requireRightClickToOrbit = false;
+
+        [Header("Pitch Angle Limits")]
+        [SerializeField] private float minPitch = -30.0f;
+        [SerializeField] private float maxPitch = 70.0f;
+
+        [Header("Input Reference")]
+        [SerializeField] private PlayerInputReader inputReader;
+
         private CinemachineCamera virtualCamera;
         private CinemachineOrbitalFollow orbitalFollow;
+        private CinemachineHardLookAt hardLookAt;
         private CinemachineDeoccluder deoccluder;
 
-        private Transform cameraPivotTarget;
         private float yaw;
         private float pitch;
         private float distance;
+        private bool isCursorLocked = true;
 
         private void Awake()
         {
             virtualCamera = GetComponent<CinemachineCamera>();
             orbitalFollow = GetComponent<CinemachineOrbitalFollow>();
+            hardLookAt = GetComponent<CinemachineHardLookAt>();
             deoccluder = GetComponent<CinemachineDeoccluder>();
 
             distance = defaultDistance;
-            pitch = defaultPitch;
+            pitch = Mathf.Clamp(defaultPitch, minPitch, maxPitch);
             yaw = defaultYaw;
 
-            // Ensure cursor is unlocked and visible
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-
-            ConfigureDeoccluderAndOrbital();
+            ConfigurePipelineComponents();
         }
 
         private void Start()
         {
+            EnsureInputReader();
             AssignTarget();
-            ConfigureDeoccluderAndOrbital();
+            ConfigurePipelineComponents();
             ApplyOrbit();
+        }
+
+        private void Update()
+        {
+            EnsureInputReader();
+            HandleCameraInput();
+            ApplyCursorLock();
         }
 
         private void LateUpdate()
         {
             AssignTarget();
-            UpdatePivotTargetPosition();
             ApplyOrbit();
         }
 
         public void SetTarget(Transform value)
         {
             target = value;
+            EnsureInputReader();
             AssignTarget();
-            ConfigureDeoccluderAndOrbital();
+            ConfigurePipelineComponents();
             ApplyOrbit();
         }
 
-        private void UpdatePivotTargetPosition()
+        private void EnsureInputReader()
         {
-            if (cameraPivotTarget != null && target != null)
+            if (inputReader != null) return;
+            if (target != null)
             {
-                // Position tracks robot chest height, rotation stays world-aligned (identity)
-                // so the camera does NOT spin when the robot turns!
-                cameraPivotTarget.position = target.position + targetOffset;
-                cameraPivotTarget.rotation = Quaternion.identity;
+                inputReader = target.GetComponentInParent<PlayerInputReader>();
+            }
+            if (inputReader == null)
+            {
+                inputReader = Object.FindFirstObjectByType<PlayerInputReader>();
+            }
+        }
+
+        private void ApplyCursorLock()
+        {
+            if (!lockCursor)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                return;
+            }
+
+            if (requireRightClickToOrbit)
+            {
+                if (UnityEngine.Input.GetMouseButton(1))
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+                else
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+            }
+            else
+            {
+                if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+                {
+                    isCursorLocked = false;
+                }
+                else if (UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1))
+                {
+                    isCursorLocked = true;
+                }
+
+                if (isCursorLocked)
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+                else
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+            }
+        }
+
+        private void HandleCameraInput()
+        {
+            if (inputReader == null) return;
+            if (lockCursor && !requireRightClickToOrbit && !isCursorLocked) return;
+            if (requireRightClickToOrbit && !UnityEngine.Input.GetMouseButton(1)) return;
+
+            Vector2 lookInput = inputReader.LookInput;
+            if (lookInput.sqrMagnitude > 0.0001f)
+            {
+                yaw += lookInput.x * mouseSensitivityX;
+                if (yaw > 180f) yaw -= 360f;
+                else if (yaw < -180f) yaw += 360f;
+
+                float pitchDelta = (invertY ? lookInput.y : -lookInput.y) * mouseSensitivityY;
+                pitch = Mathf.Clamp(pitch + pitchDelta, minPitch, maxPitch);
             }
         }
 
@@ -82,37 +170,29 @@ namespace Robot.Player.CameraControl
         {
             if (virtualCamera == null || target == null) return;
 
-            if (cameraPivotTarget == null)
-            {
-                GameObject pivotGo = GameObject.Find("RobotCameraPivotTarget");
-                if (pivotGo == null)
-                {
-                    pivotGo = new GameObject("RobotCameraPivotTarget");
-                }
-                cameraPivotTarget = pivotGo.transform;
-            }
-
-            UpdatePivotTargetPosition();
-
-            if (virtualCamera.Follow != cameraPivotTarget) virtualCamera.Follow = cameraPivotTarget;
-            if (virtualCamera.LookAt != cameraPivotTarget) virtualCamera.LookAt = cameraPivotTarget;
+            if (virtualCamera.Follow != target) virtualCamera.Follow = target;
+            if (virtualCamera.LookAt != target) virtualCamera.LookAt = target;
         }
 
-        private void ConfigureDeoccluderAndOrbital()
+        private void ConfigurePipelineComponents()
         {
-            if (deoccluder == null) deoccluder = GetComponent<CinemachineDeoccluder>();
-            if (deoccluder != null)
-            {
-                deoccluder.IgnoreTag = "Player";
-                deoccluder.MinimumDistanceFromTarget = 0.8f;
-            }
-
             if (orbitalFollow == null) orbitalFollow = GetComponent<CinemachineOrbitalFollow>();
-            if (orbitalFollow != null)
-            {
-                orbitalFollow.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
-                orbitalFollow.TargetOffset = Vector3.zero;
-            }
+            if (orbitalFollow == null) orbitalFollow = gameObject.AddComponent<CinemachineOrbitalFollow>();
+
+            if (hardLookAt == null) hardLookAt = GetComponent<CinemachineHardLookAt>();
+            if (hardLookAt == null) hardLookAt = gameObject.AddComponent<CinemachineHardLookAt>();
+
+            if (deoccluder == null) deoccluder = GetComponent<CinemachineDeoccluder>();
+            if (deoccluder == null) deoccluder = gameObject.AddComponent<CinemachineDeoccluder>();
+
+            orbitalFollow.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
+            orbitalFollow.TargetOffset = targetOffset;
+            orbitalFollow.TrackerSettings.BindingMode = BindingMode.WorldSpace;
+
+            hardLookAt.LookAtOffset = targetOffset;
+
+            deoccluder.IgnoreTag = "Player";
+            deoccluder.MinimumDistanceFromTarget = 0.8f;
         }
 
         private void ApplyOrbit()
@@ -120,16 +200,24 @@ namespace Robot.Player.CameraControl
             if (orbitalFollow == null) return;
 
             orbitalFollow.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
-            orbitalFollow.TargetOffset = Vector3.zero;
+            orbitalFollow.TargetOffset = targetOffset;
             orbitalFollow.Radius = distance;
+            orbitalFollow.TrackerSettings.BindingMode = BindingMode.WorldSpace;
 
             orbitalFollow.HorizontalAxis.Value = yaw;
             orbitalFollow.HorizontalAxis.Wrap = true;
             orbitalFollow.HorizontalAxis.Range = new Vector2(-180f, 180f);
+            orbitalFollow.HorizontalAxis.Recentering.Enabled = false;
 
             orbitalFollow.VerticalAxis.Value = pitch;
             orbitalFollow.VerticalAxis.Wrap = false;
-            orbitalFollow.VerticalAxis.Range = new Vector2(-89f, 89f);
+            orbitalFollow.VerticalAxis.Range = new Vector2(minPitch, maxPitch);
+            orbitalFollow.VerticalAxis.Recentering.Enabled = false;
+
+            if (hardLookAt != null)
+            {
+                hardLookAt.LookAtOffset = targetOffset;
+            }
         }
     }
 }

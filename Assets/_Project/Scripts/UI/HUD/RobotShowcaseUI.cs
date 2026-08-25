@@ -1,26 +1,34 @@
 using UnityEngine;
 using Robot.Robots.Customization;
+using Robot.Player;
 using Robot.Player.Movement;
 
 namespace Robot.UI.HUD
 {
     /// <summary>
-    /// Interactive Test UI script for Play Mode testing of movement and color themes.
+    /// Temporary Play Mode controls. Color selection calls the input-independent customizer API.
     /// </summary>
     public class RobotShowcaseUI : MonoBehaviour
     {
         [SerializeField] private RobotColorCustomizer colorCustomizer;
+        [SerializeField] private RobotAnimator robotAnimator;
         [SerializeField] private KeyCode changeColorKey = KeyCode.C;
 
         private GUIStyle headerStyle;
         private GUIStyle bodyStyle;
+        private GUIStyle buttonStyle;
+        private GUIStyle panelStyle;
+        private Texture2D panelTexture;
+        private Texture2D buttonNormalTexture;
+        private Texture2D buttonHoverTexture;
+        private Texture2D buttonActiveTexture;
 
         private void Start()
         {
-            EnsureCustomizerReference();
+            EnsureReferences();
         }
 
-        private void EnsureCustomizerReference()
+        private void EnsureReferences()
         {
             if (colorCustomizer == null)
             {
@@ -28,6 +36,15 @@ namespace Robot.UI.HUD
                 if (colorCustomizer == null)
                 {
                     colorCustomizer = FindFirstObjectByType<RobotColorCustomizer>();
+                }
+            }
+
+            if (robotAnimator == null)
+            {
+                robotAnimator = GetComponent<RobotAnimator>();
+                if (robotAnimator == null)
+                {
+                    robotAnimator = FindFirstObjectByType<RobotAnimator>();
                 }
             }
         }
@@ -42,7 +59,7 @@ namespace Robot.UI.HUD
 
         public void TriggerNextColor()
         {
-            EnsureCustomizerReference();
+            EnsureReferences();
             if (colorCustomizer != null)
             {
                 colorCustomizer.NextTheme();
@@ -55,14 +72,6 @@ namespace Robot.UI.HUD
 
         private bool IsChangeColorKeyPressed()
         {
-            // 1. Direct legacy KeyCode.C check
-            try
-            {
-                if (UnityEngine.Input.GetKeyDown(KeyCode.C)) return true;
-            }
-            catch { }
-
-            // 2. New Input System check
 #if ENABLE_INPUT_SYSTEM
             try
             {
@@ -72,28 +81,39 @@ namespace Robot.UI.HUD
             catch { }
 #endif
 
+            try
+            {
+                if (UnityEngine.Input.GetKeyDown(KeyCode.C)) return true;
+            }
+            catch { }
+
             return false;
         }
 
         private void OnGUI()
         {
             // On-Screen Control & Status Box
-            GUILayout.BeginArea(new Rect(20, 20, 340, 260), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(20, 20, 340, 280), GetPanelStyle());
             
-            GUILayout.Label("<b>🤖 ROBOT TEST & RENK KONTROLÜ</b>", GetHeaderStyle());
+            GUILayout.Label("<b>🤖 ROBOT TEST</b>", GetHeaderStyle());
             GUILayout.Space(8);
 
-            GUILayout.Label("🎮 <b>WASD / Ok Tuşları:</b> Yürü");
-            GUILayout.Label("🏃 <b>Shift:</b> Koş");
-            GUILayout.Label("🎥 <b>Fare (Sağ Tık / Sürükle):</b> Kamera Döndür");
-            GUILayout.Label("🎨 <b>'C' Tuşu:</b> Renk Değiştir");
-            GUILayout.Space(12);
-
-            string activeThemeName = colorCustomizer != null ? colorCustomizer.ActiveThemeName : "Yükleniyor...";
-            GUILayout.Label($"<b>Aktif Renk Teması:</b> <color=cyan>{activeThemeName}</color>", GetBodyStyle());
+            GUILayout.Label("<b>WASD / Ok Tuşları:</b> Yürü", GetBodyStyle());
+            GUILayout.Label("<b>Shift:</b> Koş", GetBodyStyle());
+            GUILayout.Label("<b>Space:</b> Zıpla", GetBodyStyle());
+            GUILayout.Label("<b>Fare (Sağ Tık / Sürükle):</b> Kamera Döndür", GetBodyStyle());
+            GUILayout.Label("<b>C:</b> Renk Değiştir", GetBodyStyle());
+            GUILayout.Label("<b>Q:</b> Saldır", GetBodyStyle());
             GUILayout.Space(10);
 
-            if (GUILayout.Button("🎨 RENK DEĞİŞTİR ('C' Tuşu)", GUILayout.Height(45)))
+            string activeThemeName = colorCustomizer != null ? colorCustomizer.ActiveThemeName : "Yükleniyor...";
+            string activeThemeHex = colorCustomizer != null
+                ? ColorUtility.ToHtmlStringRGB(colorCustomizer.ActiveThemeColor)
+                : "FFFFFF";
+            GUILayout.Label($"<b>Aktif Renk Teması:</b> <color=#{activeThemeHex}>{activeThemeName}</color>", GetBodyStyle());
+            GUILayout.Space(10);
+
+            if (GUILayout.Button("Renk Değiştir", GetButtonStyle(), GUILayout.Height(40)))
             {
                 TriggerNextColor();
             }
@@ -126,6 +146,58 @@ namespace Robot.UI.HUD
                 };
             }
             return bodyStyle;
+        }
+
+        private GUIStyle GetButtonStyle()
+        {
+            if (buttonStyle == null)
+            {
+                buttonNormalTexture = CreateSolidTexture("HUD Button Normal", RobotHudTheme.ControlColor);
+                buttonHoverTexture = CreateSolidTexture("HUD Button Hover", RobotHudTheme.ControlHoverColor);
+                buttonActiveTexture = CreateSolidTexture("HUD Button Active", RobotHudTheme.ControlActiveColor);
+                buttonStyle = new GUIStyle(GUI.skin.button)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 13,
+                    richText = true
+                };
+                buttonStyle.normal.background = buttonNormalTexture;
+                buttonStyle.hover.background = buttonHoverTexture;
+                buttonStyle.active.background = buttonActiveTexture;
+                buttonStyle.normal.textColor = Color.white;
+                buttonStyle.hover.textColor = Color.white;
+                buttonStyle.active.textColor = Color.white;
+            }
+            return buttonStyle;
+        }
+
+        private GUIStyle GetPanelStyle()
+        {
+            if (panelStyle == null)
+            {
+                panelTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false) { name = "Robot HUD Panel Background" };
+                panelTexture.SetPixel(0, 0, RobotHudTheme.PanelColor);
+                panelTexture.Apply();
+                panelStyle = new GUIStyle(GUI.skin.box);
+                panelStyle.normal.background = panelTexture;
+            }
+            return panelStyle;
+        }
+
+        private void OnDestroy()
+        {
+            if (panelTexture != null) Destroy(panelTexture);
+            if (buttonNormalTexture != null) Destroy(buttonNormalTexture);
+            if (buttonHoverTexture != null) Destroy(buttonHoverTexture);
+            if (buttonActiveTexture != null) Destroy(buttonActiveTexture);
+        }
+
+        private static Texture2D CreateSolidTexture(string textureName, Color color)
+        {
+            Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false) { name = textureName };
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            return texture;
         }
     }
 }

@@ -19,6 +19,7 @@ namespace Robot.Input
         private InputAction jumpAction;
         private InputAction interactAction;
         private InputAction pauseAction;
+        private InputAction attackAction;
 
         private Vector2 moveInput;
         private Vector2 lookInput;
@@ -28,11 +29,12 @@ namespace Robot.Input
         private bool jumpPressed;
         private bool interactPressed;
         private bool pausePressed;
+        private bool attackPressed;
         private bool isListening;
 
         public Vector2 MoveInput => Vector2.ClampMagnitude(moveInput + mobileMoveInput, 1f);
         public Vector2 LookInput => lookInput + mobileLookInput;
-        public bool RunHeld => (runAction != null && runAction.IsPressed()) || UnityEngine.Input.GetKey(KeyCode.LeftShift);
+        public bool RunHeld => (runAction != null && runAction.enabled && runAction.IsPressed()) || UnityEngine.Input.GetKey(KeyCode.LeftShift);
         public float ZoomInput => zoomInput;
 
         public void Configure(InputActionAsset inputActions)
@@ -49,16 +51,29 @@ namespace Robot.Input
 
         private void Initialize()
         {
-            if (actions == null || playerMap != null) return;
-            playerMap = actions.FindActionMap(PlayerMapName, true);
-            uiMap = actions.FindActionMap(UiMapName, false);
-            moveAction = playerMap.FindAction("Move", true);
-            lookAction = playerMap.FindAction("Look", true);
-            runAction = playerMap.FindAction("Run", false) ?? playerMap.FindAction("Sprint", false);
-            zoomAction = playerMap.FindAction("Zoom", false);
-            jumpAction = playerMap.FindAction("Jump", false);
-            interactAction = playerMap.FindAction("Interact", false);
-            pauseAction = playerMap.FindAction("Pause", false);
+            if (actions == null) return;
+            if (playerMap != null) return;
+
+            try
+            {
+                playerMap = actions.FindActionMap(PlayerMapName, false);
+                uiMap = actions.FindActionMap(UiMapName, false);
+                if (playerMap != null)
+                {
+                    moveAction = playerMap.FindAction("Move", false);
+                    lookAction = playerMap.FindAction("Look", false);
+                    runAction = playerMap.FindAction("Run", false) ?? playerMap.FindAction("Sprint", false);
+                    zoomAction = playerMap.FindAction("Zoom", false);
+                    jumpAction = playerMap.FindAction("Jump", false);
+                    interactAction = playerMap.FindAction("Interact", false);
+                    pauseAction = playerMap.FindAction("Pause", false);
+                    attackAction = playerMap.FindAction("Attack", false);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[PlayerInputReader] Could not initialize input maps: {ex.Message}");
+            }
         }
 
         private void OnEnable()
@@ -69,8 +84,24 @@ namespace Robot.Input
 
         private void StartListening()
         {
-            if (playerMap == null || isListening) return;
-            playerMap.Enable();
+            if (isListening) return;
+
+            if (actions != null)
+            {
+                try
+                {
+                    actions.Enable();
+                }
+                catch (System.Exception)
+                {
+                    // Fallback to enabling individual map safely
+                    if (playerMap != null)
+                    {
+                        try { playerMap.Enable(); } catch (System.Exception) {}
+                    }
+                }
+            }
+
             if (moveAction != null) { moveAction.performed += ReadMove; moveAction.canceled += ReadMove; }
             if (lookAction != null) { lookAction.performed += ReadLook; lookAction.canceled += ReadLook; }
             if (zoomAction != null) { zoomAction.performed += ReadZoom; zoomAction.canceled += ReadZoom; }
@@ -80,13 +111,24 @@ namespace Robot.Input
 
         private void OnDisable()
         {
-            if (playerMap == null) return;
             if (moveAction != null) { moveAction.performed -= ReadMove; moveAction.canceled -= ReadMove; }
             if (lookAction != null) { lookAction.performed -= ReadLook; lookAction.canceled -= ReadLook; }
             if (zoomAction != null) { zoomAction.performed -= ReadZoom; zoomAction.canceled -= ReadZoom; }
             UnsubscribeButtons();
-            playerMap.Disable();
-            uiMap?.Disable();
+
+            if (actions != null)
+            {
+                try
+                {
+                    actions.Disable();
+                }
+                catch (System.Exception) {}
+            }
+            else if (playerMap != null)
+            {
+                try { playerMap.Disable(); } catch (System.Exception) {}
+            }
+
             isListening = false;
         }
 
@@ -95,7 +137,20 @@ namespace Robot.Input
             Vector2 rawInput = Vector2.zero;
             if (moveAction != null && moveAction.enabled)
             {
-                rawInput = moveAction.ReadValue<Vector2>();
+                try
+                {
+                    rawInput = moveAction.ReadValue<Vector2>();
+                }
+                catch (System.Exception) {}
+            }
+
+            if (lookAction != null && lookAction.enabled)
+            {
+                try
+                {
+                    lookInput = lookAction.ReadValue<Vector2>();
+                }
+                catch (System.Exception) {}
             }
 
             // Direct keyboard WASD check
@@ -128,11 +183,25 @@ namespace Robot.Input
         public bool ConsumeJumpPressed() => Consume(ref jumpPressed) || UnityEngine.Input.GetKeyDown(KeyCode.Space);
         public bool ConsumeInteractPressed() => Consume(ref interactPressed) || UnityEngine.Input.GetKeyDown(KeyCode.E);
         public bool ConsumePausePressed() => Consume(ref pausePressed) || UnityEngine.Input.GetKeyDown(KeyCode.Escape);
+        public bool ConsumeAttackPressed()
+        {
+            bool keyboardPressed = false;
+            try { keyboardPressed = UnityEngine.Input.GetKeyDown(KeyCode.Q); } catch (System.Exception) {}
+            return Consume(ref attackPressed) || keyboardPressed;
+        }
 
         public void SetPaused(bool paused)
         {
-            if (paused) { playerMap.Disable(); uiMap?.Enable(); }
-            else { uiMap?.Disable(); playerMap.Enable(); }
+            if (paused)
+            {
+                if (playerMap != null) try { playerMap.Disable(); } catch (System.Exception) {}
+                if (uiMap != null) try { uiMap.Enable(); } catch (System.Exception) {}
+            }
+            else
+            {
+                if (uiMap != null) try { uiMap.Disable(); } catch (System.Exception) {}
+                if (playerMap != null) try { playerMap.Enable(); } catch (System.Exception) {}
+            }
         }
 
         private void ReadMove(InputAction.CallbackContext context) => moveInput = context.ReadValue<Vector2>();
@@ -144,6 +213,7 @@ namespace Robot.Input
             if (jumpAction != null) jumpAction.performed += OnJump;
             if (interactAction != null) interactAction.performed += OnInteract;
             if (pauseAction != null) pauseAction.performed += OnPause;
+            if (attackAction != null) attackAction.performed += OnAttack;
         }
 
         private void UnsubscribeButtons()
@@ -151,11 +221,13 @@ namespace Robot.Input
             if (jumpAction != null) jumpAction.performed -= OnJump;
             if (interactAction != null) interactAction.performed -= OnInteract;
             if (pauseAction != null) pauseAction.performed -= OnPause;
+            if (attackAction != null) attackAction.performed -= OnAttack;
         }
 
         private void OnJump(InputAction.CallbackContext _) => jumpPressed = true;
         private void OnInteract(InputAction.CallbackContext _) => interactPressed = true;
         private void OnPause(InputAction.CallbackContext _) => pausePressed = true;
+        private void OnAttack(InputAction.CallbackContext _) => attackPressed = true;
         private static bool Consume(ref bool value) { bool result = value; value = false; return result; }
     }
 }

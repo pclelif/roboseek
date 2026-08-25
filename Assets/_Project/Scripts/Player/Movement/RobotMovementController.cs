@@ -30,9 +30,11 @@ namespace Robot.Player.Movement
         private PlayerInputReader input;
         private float verticalVelocity;
         private float currentSpeed;
+        private bool controlEnabled = true;
 
         public bool IsGrounded { get; private set; }
         public float CurrentSpeedNormalized { get; private set; }
+        public float VerticalVelocity => verticalVelocity;
 
         private void Awake()
         {
@@ -47,6 +49,11 @@ namespace Robot.Player.Movement
 
         private void Update()
         {
+            if (!controlEnabled)
+            {
+                CurrentSpeedNormalized = 0f;
+                return;
+            }
             EnsureCameraReference();
             UpdateVerticalVelocity();
             Move();
@@ -57,6 +64,16 @@ namespace Robot.Player.Movement
             if (value != null && value != transform && !value.IsChildOf(transform))
             {
                 cameraTransform = value;
+            }
+        }
+
+        public void SetControlEnabled(bool value)
+        {
+            controlEnabled = value;
+            if (!value)
+            {
+                currentSpeed = 0f;
+                CurrentSpeedNormalized = 0f;
             }
         }
 
@@ -74,19 +91,23 @@ namespace Robot.Player.Movement
 
         private void UpdateVerticalVelocity()
         {
-            IsGrounded = controller.isGrounded;
+            float gravityMagnitude = gravity != 0f ? Mathf.Abs(gravity) : 20.0f;
+            float downwardGravity = -gravityMagnitude;
+
+            IsGrounded = controller != null && controller.isGrounded;
             if (IsGrounded && verticalVelocity < 0f)
             {
                 verticalVelocity = groundedVerticalVelocity;
             }
 
-            if (IsGrounded && input.ConsumeJumpPressed())
+            if (IsGrounded && input != null && input.ConsumeJumpPressed())
             {
-                verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                verticalVelocity = Mathf.Sqrt(jumpHeight * 2f * gravityMagnitude);
                 IsGrounded = false;
             }
 
-            verticalVelocity += gravity * Time.deltaTime;
+            verticalVelocity += downwardGravity * Time.deltaTime;
+            verticalVelocity = Mathf.Clamp(verticalVelocity, -50.0f, 30.0f);
         }
 
         private void Move()
