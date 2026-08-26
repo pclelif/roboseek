@@ -50,10 +50,12 @@ namespace Robot.ObjectHunt
         private IEnumerator CollectRoutine(Transform collector, Transform pickupTarget)
         {
             RobotMovementController movement = collector.GetComponent<RobotMovementController>();
-            CombatHealth health = collector.GetComponent<CombatHealth>();
             RobotAnimator animator = collector.GetComponent<RobotAnimator>();
+
+            // Step 1: Robot stops
             movement?.SetControlEnabled(false);
 
+            // Step 2: Smoothly rotate to face the toy (approx 0.25s)
             Vector3 flatDirection = transform.position - collector.position;
             flatDirection.y = 0f;
             Quaternion startRotation = collector.rotation;
@@ -65,25 +67,33 @@ namespace Robot.ObjectHunt
                 collector.rotation = Quaternion.Slerp(startRotation, targetRotation, Mathf.Clamp01(turnTime / 0.25f));
                 yield return null;
             }
+            collector.rotation = targetRotation;
 
+            // Step 3: Pickup feedback gesture
             animator?.PlayPickupGesture();
+
+            // Steps 4 & 5: Toy lifts into air, flies to PickupTarget, and shrinks to zero
             Vector3 startPosition = transform.position;
             Vector3 startScale = transform.localScale;
             float travelTime = 0f;
-            const float duration = 0.38f;
+            const float duration = 0.42f;
             while (travelTime < duration)
             {
                 travelTime += Time.deltaTime;
                 float t = Mathf.Clamp01(travelTime / duration);
-                Vector3 destination = pickupTarget != null ? pickupTarget.position : collector.position + Vector3.up;
+                Vector3 destination = pickupTarget != null ? pickupTarget.position : collector.position + Vector3.up * 1.1f;
                 transform.position = Vector3.Lerp(startPosition, destination, t) + Vector3.up * (Mathf.Sin(t * Mathf.PI) * 0.45f);
                 transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
                 yield return null;
             }
 
+            // Step 6: Target HUD marks this toy completed
             manager.NotifyCollected(this);
             gameObject.SetActive(false);
-            if (movement != null && (health == null || !health.IsKnockedOut)) movement.SetControlEnabled(true);
+
+            // Step 7: Robot movement control restored
+            yield return new WaitForSeconds(0.05f);
+            if (movement != null) movement.SetControlEnabled(true);
         }
     }
 }

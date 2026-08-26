@@ -261,41 +261,71 @@ namespace Robot.ObjectHunt
         private List<Vector3> FindSpawnPositions(int count)
         {
             var result = new List<Vector3>();
+            if (player == null) ResolvePlayer();
+            Vector3 origin = player != null ? player.position : Vector3.zero;
+
             NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
             if (triangulation.vertices != null && triangulation.vertices.Length > 0)
             {
                 var candidates = new List<Vector3>();
-                for (int i = 0; i < triangulation.vertices.Length; i++)
+                NavMeshHit originHit;
+                bool hasOriginNav = NavMesh.SamplePosition(origin, out originHit, 8f, NavMesh.AllAreas);
+
+                for (int i = 0; i + 2 < triangulation.indices.Length; i += 3)
                 {
-                    if (NavMesh.SamplePosition(triangulation.vertices[i], out NavMeshHit hit, 3.5f, NavMesh.AllAreas))
-                        candidates.Add(hit.position);
+                    Vector3 center = (triangulation.vertices[triangulation.indices[i]] +
+                                      triangulation.vertices[triangulation.indices[i + 1]] +
+                                      triangulation.vertices[triangulation.indices[i + 2]]) / 3f;
+
+                    if (!NavMesh.SamplePosition(center, out NavMeshHit hit, 2.5f, NavMesh.AllAreas)) continue;
+                    Vector3 pt = hit.position;
+
+                    // 1. Ground level height constraint: NEVER on rooftops (y > 2.5m) or under map
+                    if (player != null && Mathf.Abs(pt.y - origin.y) > 1.8f) continue;
+                    if (pt.y > 2.5f || pt.y < -0.8f) continue;
+
+                    // 2. Search distance from player
+                    float dist = player != null ? FlatDistance(pt, origin) : 25f;
+                    if (dist < 12f || dist > 60f) continue;
+
+                    // 3. Complete reachable walking path (robot can actually walk to it)
+                    if (hasOriginNav)
+                    {
+                        var path = new NavMeshPath();
+                        if (!NavMesh.CalculatePath(originHit.position, pt, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete)
+                            continue;
+                    }
+
+                    if (candidates.Any(existing => FlatDistance(existing, pt) < 10f)) continue;
+
+                    candidates.Add(pt);
                 }
 
-                for (int i = 0; i < candidates.Count; i++)
+                for (int i = candidates.Count - 1; i > 0; i--)
                 {
-                    int swap = UnityEngine.Random.Range(i, candidates.Count);
+                    int swap = UnityEngine.Random.Range(0, i + 1);
                     (candidates[i], candidates[swap]) = (candidates[swap], candidates[i]);
                 }
 
                 SelectSpacedCandidates(candidates, result, count, minimumTargetSpacing);
                 if (result.Count < count)
                 {
-                    SelectSpacedCandidates(candidates, result, count, Mathf.Max(5f, minimumTargetSpacing * 0.5f));
+                    SelectSpacedCandidates(candidates, result, count, Mathf.Max(12f, minimumTargetSpacing * 0.5f));
                 }
             }
 
-            // Reliable fallback positions in city center
-            Vector3[] fallbacks = {
-                new Vector3(-4f, 0.05f, 5f),
-                new Vector3(5f, 0.05f, -3f),
-                new Vector3(0f, 0.05f, -8f),
-                new Vector3(-6f, 0.05f, -4f)
+            // Reliable street-level plaza fallbacks in Demo city
+            Vector3[] streetFallbacks = {
+                new Vector3(-6f, 0.05f, -12f),
+                new Vector3(8f, 0.05f, -8f),
+                new Vector3(-12f, 0.05f, 6f),
+                new Vector3(10f, 0.05f, 12f)
             };
             int fbIndex = 0;
-            while (result.Count < count && fbIndex < fallbacks.Length)
+            while (result.Count < count && fbIndex < streetFallbacks.Length)
             {
-                Vector3 fb = fallbacks[fbIndex++];
-                if (!result.Any(r => FlatDistance(r, fb) < 3f)) result.Add(fb);
+                Vector3 fb = streetFallbacks[fbIndex++];
+                if (!result.Any(r => FlatDistance(r, fb) < 4f)) result.Add(fb);
             }
 
             return result;
