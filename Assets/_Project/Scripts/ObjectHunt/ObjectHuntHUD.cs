@@ -151,14 +151,20 @@ namespace Robot.ObjectHunt
 
             if (Robot.Multiplayer.NetworkRoundManager.Instance != null && Robot.Multiplayer.NetworkRoundManager.Instance.IsSpawned)
             {
-                var scores = Robot.Multiplayer.NetworkRoundManager.Instance.GetAllScores();
-                string scoreLines = "\n<b>MULTIPLAYER SCOREBOARD:</b>\n";
-                foreach (var kvp in scores)
+                var leaderboard = Robot.Multiplayer.NetworkRoundManager.Instance.GetLeaderboard();
+                string leaderboardLines = "\n\n<b>LEADERBOARD:</b>\n";
+                for (int i = 0; i < leaderboard.Count; i++)
                 {
-                    int found = Robot.Multiplayer.NetworkRoundManager.Instance.GetFoundCount(kvp.Key);
-                    scoreLines += $"Player {kvp.Key + 1}: {found} Found | {kvp.Value} Pts\n";
+                    var p = leaderboard[i];
+                    string rank = i == 0 ? "🥇 1st" : (i == 1 ? "🥈 2nd" : (i == 2 ? "🥉 3rd" : $"{i + 1}th"));
+                    leaderboardLines += $"{rank}  {p.playerName}:  {p.objectsFound} Found  •  Round: +{p.RoundScore}  •  Total: {p.TotalScore} Pts\n";
                 }
-                result.text = $"{status}\nFOUND: {data.foundCount} / 3  ({foundObjects})\nTIME: {FormatTime(data.elapsedTime)}{scoreLines}";
+                result.text = $"<b>{status}</b>\nFOUND: {data.foundCount} / 3  ({foundObjects})\nTIME: {FormatTime(data.elapsedTime)}{leaderboardLines}";
+            }
+            else if (Robot.Score.ScoreManager.Instance != null)
+            {
+                string breakdown = Robot.Score.ScoreManager.Instance.GetBreakdownString();
+                result.text = $"<b>{status}</b>\nFOUND: {data.foundCount} / 3  ({foundObjects})\nTIME: {FormatTime(data.elapsedTime)}\n\n<b>SCORE BREAKDOWN:</b>\n{breakdown}";
             }
             else
             {

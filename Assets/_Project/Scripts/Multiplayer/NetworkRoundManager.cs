@@ -1,28 +1,20 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 using Robot.ObjectHunt;
+using Robot.Score;
 
 namespace Robot.Multiplayer
 {
-    public enum NetworkRoundState
-    {
-        WaitingForPlayers,
-        Preparing,
-        Playing,
-        RoundComplete,
-        Results
-    }
-
     [DisallowMultipleComponent]
     public sealed class NetworkRoundManager : NetworkBehaviour
     {
         public static NetworkRoundManager Instance { get; private set; }
 
         [SerializeField] private float roundDuration = 600f;
-        [SerializeField] private int pointsPerTarget = 100;
         [SerializeField] private bool autoStartWhenTwoPlayers = true;
 
         public NetworkVariable<NetworkRoundState> CurrentState = new NetworkVariable<NetworkRoundState>(
@@ -45,15 +37,16 @@ namespace Robot.Multiplayer
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
-        private readonly Dictionary<ulong, int> playerScores = new Dictionary<ulong, int>();
-        private readonly Dictionary<ulong, int> playerCollectedCounts = new Dictionary<ulong, int>();
+        private readonly Dictionary<ulong, PlayerScoreData> playerScores = new Dictionary<ulong, PlayerScoreData>();
+        private readonly HashSet<string> firstFoundTargets = new HashSet<string>();
         private readonly HashSet<string> collectedTargetIds = new HashSet<string>();
+        private readonly Dictionary<(ulong, ulong), float> combatHitCooldowns = new Dictionary<(ulong, ulong), float>();
 
         private ObjectHuntRoundManager localHuntManager;
 
         public event Action<NetworkRoundState> StateChanged;
         public event Action<string, ulong, int> TargetCollectedOnNetwork;
-        public event Action<Dictionary<ulong, int>> ScoresUpdated;
+        public event Action<List<PlayerScoreData>> ScoreboardUpdated;
 
         private void Awake()
         {
@@ -95,14 +88,7 @@ namespace Robot.Multiplayer
         {
             if (!IsServer) return;
 
-            if (CurrentState.Value == NetworkRoundState.WaitingForPlayers)
-            {
-                if (autoStartWhenTwoPlayers && NetworkManager.Singleton != null && NetworkManager.Singleton.ConnectedClientsList.Count >= 1)
-                {
-                    // Host can start or auto-prepare
-                }
-            }
-            else if (CurrentState.Value == NetworkRoundState.Playing)
+            if (CurrentState.Value == NetworkRoundState.Playing)
             {
                 TimeRemaining.Value = Mathf.Max(0f, TimeRemaining.Value - Time.deltaTime);
                 if (TimeRemaining.Value <= 0f)
@@ -122,8 +108,20 @@ namespace Robot.Multiplayer
         {
             CurrentState.Value = NetworkRoundState.Preparing;
             collectedTargetIds.Clear();
+            firstFoundTargets.Clear();
+            combatHitCooldowns.Clear();
             SyncedCollectedCount.Value = 0;
             TimeRemaining.Value = roundDuration;
+
+            // Reset round score for all players while keeping TotalScore
+            var clientKeys = playerScores.Keys.ToList();
+            foreach (var key in clientKeys)
+            {
+                var score = playerScores[key];
+                score.ResetRound();
+                playerScores[key] = score;
+            }
+            BroadcastScoreboard();
 
             if (localHuntManager != null)
             {
@@ -149,16 +147,19 @@ namespace Robot.Multiplayer
             collectedTargetIds.Add(targetId);
             SyncedCollectedCount.Value++;
 
-            if (!playerScores.ContainsKey(clientNetworkId)) playerScores[clientNetworkId] = 0;
-            if (!playerCollectedCounts.ContainsKey(clientNetworkId)) playerCollectedCounts[clientNetworkId] = 0;
+            bool isFirstFinder = !firstFoundTargets.Contains(targetId);
+            if (isFirstFinder) firstFoundTargets.Add(targetId);
 
-            playerScores[clientNetworkId] += pointsPerTarget;
-            playerCollectedCounts[clientNetworkId]++;
+            EnsurePlayerScoreExists(clientNetworkId);
+            var score = playerScores[clientNetworkId];
+            score.objectsFound++;
+            if (isFirstFinder) score.firstFinderCount++;
+            playerScores[clientNetworkId] = score;
 
-            int newScore = playerScores[clientNetworkId];
-            Debug.Log($"[NetworkRoundManager] Target '{targetId}' collected by Client {clientNetworkId}! New Score: {newScore} (Total Collected: {SyncedCollectedCount.Value}/3).");
+            Debug.Log($"[NetworkRoundManager] Target '{targetId}' collected by Client {clientNetworkId}! (FirstFinder: {isFirstFinder}). RoundScore: {score.RoundScore} | Total: {score.TotalScore}");
 
-            TargetCollectedClientRpc(targetId, clientNetworkId, newScore);
+            TargetCollectedClientRpc(targetId, clientNetworkId, score.RoundScore);
+            BroadcastScoreboard();
 
             if (SyncedCollectedCount.Value >= 3)
             {
@@ -166,12 +167,65 @@ namespace Robot.Multiplayer
             }
         }
 
+        [ServerRpc(RequireOwnership = false)]
+        public void ReportCombatHitServerRpc(ulong attackerClientId, ulong victimClientId)
+        {
+            if (!IsServer || CurrentState.Value != NetworkRoundState.Playing) return;
+            if (attackerClientId == victimClientId) return;
+
+            float now = Time.time;
+            var key = (attackerClientId, victimClientId);
+            if (combatHitCooldowns.TryGetValue(key, out float lastTime) && now - lastTime < 2.5f)
+            {
+                return; // Cooldown active, avoid spam
+            }
+
+            combatHitCooldowns[key] = now;
+            EnsurePlayerScoreExists(attackerClientId);
+            var score = playerScores[attackerClientId];
+            score.combatHits++;
+            playerScores[attackerClientId] = score;
+
+            Debug.Log($"[NetworkRoundManager] Client {attackerClientId} hit Client {victimClientId}! Combat score: +10 (Total Combat: {score.CombatScore})");
+            BroadcastScoreboard();
+        }
+
+        private void EnsurePlayerScoreExists(ulong clientId)
+        {
+            if (!playerScores.ContainsKey(clientId))
+            {
+                playerScores[clientId] = new PlayerScoreData
+                {
+                    clientId = clientId,
+                    playerName = $"Robot {clientId + 1}",
+                    objectsFound = 0,
+                    firstFinderCount = 0,
+                    combatHits = 0,
+                    accumulatedScore = 0
+                };
+            }
+        }
+
+        private void BroadcastScoreboard()
+        {
+            if (!IsServer) return;
+            var list = playerScores.Values.OrderByDescending(p => p.TotalScore).ToArray();
+            SyncScoreboardClientRpc(list);
+        }
+
+        [ClientRpc]
+        private void SyncScoreboardClientRpc(PlayerScoreData[] scores)
+        {
+            playerScores.Clear();
+            foreach (var s in scores) playerScores[s.clientId] = s;
+            ScoreboardUpdated?.Invoke(scores.ToList());
+        }
+
         [ClientRpc]
         private void TargetCollectedClientRpc(string targetId, ulong clientNetworkId, int totalScore)
         {
             TargetCollectedOnNetwork?.Invoke(targetId, clientNetworkId, totalScore);
 
-            // Find local collectible target with this id and trigger visual pickup
             var collectibles = FindObjectsByType<CollectibleTarget>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var col in collectibles)
             {
@@ -195,6 +249,7 @@ namespace Robot.Multiplayer
         {
             yield return new WaitForSeconds(1.5f);
             CurrentState.Value = NetworkRoundState.Results;
+            BroadcastScoreboard();
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -205,16 +260,32 @@ namespace Robot.Multiplayer
             StartCoroutine(PrepareAndStartRoundRoutine());
         }
 
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestResetMatchServerRpc()
+        {
+            if (!IsServer) return;
+            SyncedRoundNumber.Value = 1;
+            var clientKeys = playerScores.Keys.ToList();
+            foreach (var key in clientKeys)
+            {
+                var score = playerScores[key];
+                score.ResetMatch();
+                playerScores[key] = score;
+            }
+            StartCoroutine(PrepareAndStartRoundRoutine());
+        }
+
         private void HandleClientConnected(ulong clientId)
         {
-            if (!playerScores.ContainsKey(clientId)) playerScores[clientId] = 0;
-            if (!playerCollectedCounts.ContainsKey(clientId)) playerCollectedCounts[clientId] = 0;
+            EnsurePlayerScoreExists(clientId);
+            BroadcastScoreboard();
             Debug.Log($"[NetworkRoundManager] Registered Client {clientId} to scoreboard.");
         }
 
         private void HandleClientDisconnected(ulong clientId)
         {
-            Debug.Log($"[NetworkRoundManager] Client {clientId} disconnected. Score retained.");
+            Debug.Log($"[NetworkRoundManager] Client {clientId} disconnected.");
+            BroadcastScoreboard();
         }
 
         private void HandleStateChanged(NetworkRoundState oldState, NetworkRoundState newState)
@@ -223,8 +294,7 @@ namespace Robot.Multiplayer
             StateChanged?.Invoke(newState);
         }
 
-        public int GetScore(ulong clientId) => playerScores.TryGetValue(clientId, out int score) ? score : 0;
-        public int GetFoundCount(ulong clientId) => playerCollectedCounts.TryGetValue(clientId, out int count) ? count : 0;
-        public IReadOnlyDictionary<ulong, int> GetAllScores() => playerScores;
+        public PlayerScoreData GetPlayerScore(ulong clientId) => playerScores.TryGetValue(clientId, out var data) ? data : default;
+        public List<PlayerScoreData> GetLeaderboard() => playerScores.Values.OrderByDescending(p => p.TotalScore).ToList();
     }
 }

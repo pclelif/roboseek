@@ -60,6 +60,14 @@ namespace Robot.Editor
                 Debug.LogWarning("[Phase 9 Singleplayer] Object Hunt setup notice: " + ex.Message);
             }
 
+            // Ensure ScoreManager is present
+            if (UnityEngine.Object.FindFirstObjectByType<Robot.Score.ScoreManager>() == null)
+            {
+                GameObject scoreRoot = GameObject.Find("ScoreManager");
+                if (scoreRoot == null) scoreRoot = new GameObject("ScoreManager");
+                scoreRoot.AddComponent<Robot.Score.ScoreManager>();
+            }
+
             // Add GameModeSelectionUI if not present
             GameObject hudRoot = GameObject.Find("HUD_GameMode");
             if (hudRoot == null)
@@ -198,6 +206,9 @@ namespace Robot.Editor
 
             if (networkRoot.GetComponent<NetworkSessionController>() == null)
                 networkRoot.AddComponent<NetworkSessionController>();
+
+            if (networkRoot.GetComponent<Robot.Score.ScoreManager>() == null)
+                networkRoot.AddComponent<Robot.Score.ScoreManager>();
 
             if (networkRoot.GetComponent<NetworkRoundManager>() == null)
                 networkRoot.AddComponent<NetworkRoundManager>();

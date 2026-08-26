@@ -146,6 +146,12 @@ namespace Robot.ObjectHunt
             CollectedCount++;
             collectedTargets.Add(collectible.Definition);
             TargetCollected?.Invoke(collectible.Definition, CollectedCount);
+
+            if (Robot.Score.ScoreManager.Instance != null)
+            {
+                Robot.Score.ScoreManager.Instance.AddFind(isFirstFinder: true);
+            }
+
             if (CollectedCount >= 3)
             {
                 roundActive = false;

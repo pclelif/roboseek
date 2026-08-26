@@ -83,6 +83,7 @@ namespace Robot.ObjectHunt
         private IEnumerator RoundStartRoutine()
         {
             RoundNumber++;
+            Robot.Score.ScoreManager.Instance?.NextRound();
             SetPhase(RoundPhase.Intro);
             yield return new WaitForSeconds(introDuration);
 

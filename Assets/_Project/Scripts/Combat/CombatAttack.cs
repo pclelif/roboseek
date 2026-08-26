@@ -67,9 +67,26 @@ namespace Robot.Combat
                 if (target == null || target.TargetTransform == transform || target.IsKnockedOut || damagedThisSwing.Contains(target)) continue;
                 if (!allowFriendlyFire && target.Team == health.Team) continue;
                 if (intendedTarget != null && target.TargetTransform != intendedTarget && !target.TargetTransform.IsChildOf(intendedTarget)) continue;
-                if (HorizontalDistance(target.TargetTransform.position) > attackRange + hitRadius) continue;
-                if (target.TakeDamage(damage, gameObject)) damagedThisSwing.Add(target);
-            }
+                if (target.TakeDamage(damage, gameObject))
+                {
+                    damagedThisSwing.Add(target);
+
+                    // FAZ 14: Report Combat Hit to Score systems (+10 pts with 2.5s anti-spam cooldown)
+                    if (Robot.Score.ScoreManager.Instance != null)
+                    {
+                        Robot.Score.ScoreManager.Instance.TryRecordCombatHit(target.TargetTransform.gameObject);
+                    }
+
+                    if (Robot.Multiplayer.NetworkRoundManager.Instance != null && Robot.Multiplayer.NetworkRoundManager.Instance.IsSpawned)
+                    {
+                        var attackerNet = GetComponent<Unity.Netcode.NetworkObject>();
+                        var victimNet = target.TargetTransform.GetComponent<Unity.Netcode.NetworkObject>();
+                        if (attackerNet != null && victimNet != null)
+                        {
+                            Robot.Multiplayer.NetworkRoundManager.Instance.ReportCombatHitServerRpc(attackerNet.OwnerClientId, victimNet.OwnerClientId);
+                        }
+                    }
+                }
         }
 
         private static IDamageable FindDamageable(Collider source)
