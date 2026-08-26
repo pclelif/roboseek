@@ -179,6 +179,7 @@ namespace Robot.Input
         }
 
         public void SetMobileMove(Vector2 value) => mobileMoveInput = Vector2.ClampMagnitude(value, 1f);
+        public void SetMovementInput(Vector2 value) => SetMobileMove(value);
         public void SetMobileLook(Vector2 value) => mobileLookInput = value;
         public bool ConsumeJumpPressed() => Consume(ref jumpPressed) || UnityEngine.Input.GetKeyDown(KeyCode.Space);
         public bool ConsumeInteractPressed() => Consume(ref interactPressed) || UnityEngine.Input.GetKeyDown(KeyCode.E);

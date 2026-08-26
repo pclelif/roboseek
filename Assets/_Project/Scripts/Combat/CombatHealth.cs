@@ -33,6 +33,7 @@ namespace Robot.Combat
         public float CurrentHealth { get; private set; }
         public float KnockoutDuration => knockoutDuration;
         public bool IsKnockedOut { get; private set; }
+        public float KnockoutTimeRemaining { get; private set; }
         public bool RecoverAfterKnockout => recoverAfterKnockout;
         public Transform TargetTransform => transform;
 
@@ -71,8 +72,12 @@ namespace Robot.Combat
 
         private IEnumerator RecoverRoutine()
         {
-            // Scaled game time is intentional: the round timer and knockout keep advancing together.
-            yield return new WaitForSeconds(knockoutDuration);
+            KnockoutTimeRemaining = knockoutDuration;
+            while (KnockoutTimeRemaining > 0f)
+            {
+                KnockoutTimeRemaining = Mathf.Max(0f, KnockoutTimeRemaining - Time.deltaTime);
+                yield return null;
+            }
             CurrentHealth = recoverAtFullHealth ? maxHealth : Mathf.Max(1f, maxHealth * 0.5f);
             IsKnockedOut = false;
             recoveryRoutine = null;
