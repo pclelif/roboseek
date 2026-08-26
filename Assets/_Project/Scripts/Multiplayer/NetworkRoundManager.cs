@@ -9,6 +9,15 @@ using Robot.Score;
 
 namespace Robot.Multiplayer
 {
+    public enum NetworkRoundState
+    {
+        WaitingForPlayers,
+        Preparing,
+        Playing,
+        RoundComplete,
+        Results
+    }
+
     [DisallowMultipleComponent]
     public sealed class NetworkRoundManager : NetworkBehaviour
     {
