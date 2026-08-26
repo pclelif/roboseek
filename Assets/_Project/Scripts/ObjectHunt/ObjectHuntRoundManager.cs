@@ -125,8 +125,6 @@ namespace Robot.ObjectHunt
         {
             if (player == null) ResolvePlayer();
             if (player == null) return false;
-            CombatHealth health = player.GetComponent<CombatHealth>();
-            if (health != null && health.IsKnockedOut) return false;
             CollectibleTarget nearest = GetNearestInteractable();
             if (nearest == null) return false;
             return nearest.TryCollect(player, pickupTarget);
@@ -137,8 +135,8 @@ namespace Robot.ObjectHunt
             if (player == null) ResolvePlayer();
             if (player == null) return null;
             return activeTargets.Where(item => item != null && item.gameObject.activeSelf && !item.IsCollecting &&
-                FlatDistance(player.position, item.transform.position) <= 4.5f &&
-                Mathf.Abs(player.position.y - item.transform.position.y) < 4.0f)
+                FlatDistance(player.position, item.transform.position) <= 5.5f &&
+                Mathf.Abs(player.position.y - item.transform.position.y) < 5.0f)
                 .OrderBy(item => FlatDistance(player.position, item.transform.position)).FirstOrDefault();
         }
 
@@ -148,7 +146,7 @@ namespace Robot.ObjectHunt
             CollectedCount++;
             collectedTargets.Add(collectible.Definition);
             TargetCollected?.Invoke(collectible.Definition, CollectedCount);
-            if (CollectedCount >= selectedTargets.Count || CollectedCount >= 3)
+            if (CollectedCount >= 3)
             {
                 roundActive = false;
                 RoundCompleted?.Invoke();
@@ -208,16 +206,30 @@ namespace Robot.ObjectHunt
 
         private void EnsureTargetsCatalog()
         {
-            if (targets != null && targets.Count > 0 && targets.Any(t => t != null && t.prefab != null)) return;
+            if (targets != null && targets.Count >= 3 &&
+                targets.Any(t => t.category == TargetCategory.Ball && t.prefab != null) &&
+                targets.Any(t => t.category == TargetCategory.TeddyBear && t.prefab != null) &&
+                targets.Any(t => t.category == TargetCategory.ToyCar && t.prefab != null)) return;
+
             if (targets == null) targets = new List<TargetDefinition>();
+            targets.Clear();
 
 #if UNITY_EDITOR
             string root = "Assets/ThirdParty/Selected/toy/";
             (string id, TargetCategory category, string name, string file)[] catalog =
             {
                 ("ball_01", TargetCategory.Ball, "Futbol Topu", "Prop_Ball_01.prefab"),
-                ("teddy_01", TargetCategory.TeddyBear, "Oyuncak Ayı", "Prop_TeddyBear_01.prefab"),
-                ("car_01", TargetCategory.ToyCar, "Oyuncak Araba", "Prop_ToyCar_01.prefab")
+                ("ball_02", TargetCategory.Ball, "Sarı-Beyaz Top", "Prop_Ball_02.prefab"),
+                ("ball_03", TargetCategory.Ball, "Mavi Top", "Prop_Ball_03.prefab"),
+                ("ball_04", TargetCategory.Ball, "Kırmızı Top", "Prop_Ball_04.prefab"),
+                ("teddy_01", TargetCategory.TeddyBear, "Oyuncak Ayı 1", "Prop_TeddyBear_01.prefab"),
+                ("teddy_02", TargetCategory.TeddyBear, "Oyuncak Ayı 2", "Prop_TeddyBear_02.prefab"),
+                ("teddy_03", TargetCategory.TeddyBear, "Oyuncak Ayı 3", "Prop_TeddyBear_03.prefab"),
+                ("teddy_04", TargetCategory.TeddyBear, "Oyuncak Ayı 4", "Prop_TeddyBear_04.prefab"),
+                ("car_blue", TargetCategory.ToyCar, "Mavi Araba", "Prop_ToyCar_Blue.prefab"),
+                ("car_green", TargetCategory.ToyCar, "Yeşil Araba", "Prop_ToyCar_Green.prefab"),
+                ("car_yellow", TargetCategory.ToyCar, "Sarı Araba", "Prop_ToyCar_Yellow.prefab"),
+                ("car_red", TargetCategory.ToyCar, "Kırmızı Araba", "Prop_ToyCar_Red.prefab")
             };
             foreach (var item in catalog)
             {
@@ -231,7 +243,7 @@ namespace Robot.ObjectHunt
                         displayName = item.name,
                         prefab = prefab,
                         worldScale = item.category == TargetCategory.ToyCar ? 1.5f : 1f,
-                        interactionRange = 4.5f,
+                        interactionRange = 5.5f,
                         groundOffset = 0f
                     });
                 }
@@ -301,19 +313,19 @@ namespace Robot.ObjectHunt
 
         private void SpawnTarget(TargetDefinition definition, Vector3 position)
         {
-            // Sample exact physical ground height with vertical raycast
-            Vector3 groundPos = position;
+            // Sample exact walk and physical collider heights
+            float walkY = position.y;
+            float groundY = walkY;
             if (Physics.Raycast(position + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 25f, ~0, QueryTriggerInteraction.Ignore))
             {
-                groundPos = hit.point;
+                groundY = Mathf.Max(walkY, hit.point.y);
             }
 
-            // Balls have a centered origin (radius ~ 0.22m), so their center must sit at groundPos.y + 0.38m
-            // Other toys have a bottom origin, so their center/origin must sit at groundPos.y + 0.15m
-            float originElevation = definition.category == TargetCategory.Ball ? 0.38f : 0.15f;
+            // High elevation so balls and toys clearly float above sidewalks and pavements
+            float originElevation = definition.category == TargetCategory.Ball ? 0.50f : 0.35f;
             originElevation += definition.groundOffset;
 
-            Vector3 spawnWorldPos = new Vector3(groundPos.x, groundPos.y + originElevation, groundPos.z);
+            Vector3 spawnWorldPos = new Vector3(position.x, groundY + originElevation, position.z);
 
             GameObject instance = Instantiate(definition.prefab, spawnWorldPos, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
             instance.name = $"Target_{definition.objectId}";

@@ -14,6 +14,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Project/Scenes/Multiplayer/DEMO-2.unity
     guid: c71c4e3642a614047a3a0bb00c0d6e3d
+  - enabled: 1
+    path: Assets/ThirdParty/SyntyStudios/PolygonCity/Scenes/Demo.unity
+    guid: 35299a6a99d6dfe4bb709527ba95aab0
+  - enabled: 1
+    path: Assets/_Project/Scenes/Demo2.unity
+    guid: f3183a02ebd1e47c994aa07421862074
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

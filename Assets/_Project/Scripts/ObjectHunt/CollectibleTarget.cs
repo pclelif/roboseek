@@ -35,8 +35,8 @@ namespace Robot.ObjectHunt
         private void Update()
         {
             if (collecting) return;
-            transform.position = basePosition + Vector3.up * (0.18f + Mathf.Sin(Time.time * 2.8f) * 0.08f);
-            transform.Rotate(0f, 35f * Time.deltaTime, 0f, Space.World);
+            transform.position = basePosition + Vector3.up * (0.25f + Mathf.Sin(Time.time * 3f) * 0.12f);
+            transform.Rotate(0f, 45f * Time.deltaTime, 0f, Space.World);
         }
 
         public bool TryCollect(Transform collector, Transform pickupTarget)
