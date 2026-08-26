@@ -16,6 +16,7 @@ namespace Robot.Player
         [SerializeField] private string jumpLandingState = "Jump_Landing";
         [SerializeField] private string deathState = "Death";
         [SerializeField] private string attackState = "BasicAttack";
+        [SerializeField, Min(0.05f)] private float attackAnimationDuration = 0.75f;
         [SerializeField] private string pickupState = "BasicAttack";
         [SerializeField, Min(0.05f)] private float pickupGestureDuration = 0.45f;
 
