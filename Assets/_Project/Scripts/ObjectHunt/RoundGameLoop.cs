@@ -86,12 +86,16 @@ namespace Robot.ObjectHunt
             SetPhase(RoundPhase.Intro);
             yield return new WaitForSeconds(introDuration);
 
-            if (!hunt.PrepareRound())
+            if (hunt == null) hunt = GetComponent<ObjectHuntRoundManager>() ?? FindFirstObjectByType<ObjectHuntRoundManager>();
+
+            if (hunt != null)
             {
-                Debug.LogError("[Game Loop] Round preparation failed.");
-                SetPhase(RoundPhase.Result);
-                flowRoutine = null;
-                yield break;
+                bool prepared = hunt.PrepareRound();
+                if (!prepared)
+                {
+                    yield return new WaitForSeconds(0.5f);
+                    hunt.PrepareRound();
+                }
             }
 
             SetPhase(RoundPhase.Targets);

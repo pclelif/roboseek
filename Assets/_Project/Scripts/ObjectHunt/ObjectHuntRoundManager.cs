@@ -78,29 +78,44 @@ namespace Robot.ObjectHunt
 
         public bool PrepareRound()
         {
-            if (!ResolvePlayer() || targets.Count == 0) return false;
+            EnsureTargetsCatalog();
+            ResolvePlayer();
+
             CleanupTargets();
             selectedTargets.Clear();
             collectedTargets.Clear();
+
             SelectOne(TargetCategory.Ball);
             SelectOne(TargetCategory.TeddyBear);
             SelectOne(TargetCategory.ToyCar);
-            if (selectedTargets.Count != 3) { Debug.LogError("[Object Hunt] Target catalog is incomplete."); return false; }
 
-            List<Vector3> positions = FindSpawnPositions(3);
-            if (positions.Count != 3) { Debug.LogError("[Object Hunt] Could not find three valid NavMesh target positions."); return false; }
-            for (int i = 0; i < 3; i++) SpawnTarget(selectedTargets[i], positions[i]);
+            // If any category was missing, fill up from any available target
+            if (selectedTargets.Count < 3 && targets.Count > 0)
+            {
+                foreach (var t in targets)
+                {
+                    if (selectedTargets.Count >= 3) break;
+                    if (t.prefab != null && !selectedTargets.Contains(t)) selectedTargets.Add(t);
+                }
+            }
+
+            List<Vector3> positions = FindSpawnPositions(selectedTargets.Count > 0 ? selectedTargets.Count : 3);
+            for (int i = 0; i < selectedTargets.Count && i < positions.Count; i++)
+            {
+                SpawnTarget(selectedTargets[i], positions[i]);
+            }
+
             CollectedCount = 0;
             timeRemaining = roundDuration;
             roundActive = false;
             RoundStarted?.Invoke(selectedTargets);
             TimerChanged?.Invoke(timeRemaining);
-            return true;
+            return activeTargets.Count > 0;
         }
 
         public void StartSearch()
         {
-            if (selectedTargets.Count != 3 || CollectedCount >= 3) return;
+            if (activeTargets.Count == 0 || CollectedCount >= activeTargets.Count) return;
             roundActive = true;
         }
 
@@ -133,27 +148,52 @@ namespace Robot.ObjectHunt
             CollectedCount++;
             collectedTargets.Add(collectible.Definition);
             TargetCollected?.Invoke(collectible.Definition, CollectedCount);
-            if (CollectedCount >= 3)
+            if (CollectedCount >= selectedTargets.Count || CollectedCount >= 3)
             {
                 roundActive = false;
                 RoundCompleted?.Invoke();
             }
         }
 
-        private bool ResolvePlayer()
+        public bool ResolvePlayer()
         {
             if (player == null)
             {
-                GameObject found = GameObject.FindGameObjectWithTag("Player");
-                if (found == null) found = GameObject.Find("RobotPlayer");
-                if (found == null)
+                // 1. Check for owner NetworkRobotPlayer in multiplayer
+                var netPlayers = UnityEngine.Object.FindObjectsByType<Robot.Multiplayer.NetworkRobotPlayer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                foreach (var np in netPlayers)
+                {
+                    if (np != null && np.IsOwner)
+                    {
+                        player = np.transform;
+                        break;
+                    }
+                }
+
+                // 2. Fallback to Tag "Player"
+                if (player == null)
+                {
+                    GameObject found = GameObject.FindGameObjectWithTag("Player");
+                    if (found != null) player = found.transform;
+                }
+
+                // 3. Fallback to "RobotPlayer"
+                if (player == null)
+                {
+                    GameObject found = GameObject.Find("RobotPlayer");
+                    if (found != null) player = found.transform;
+                }
+
+                // 4. Fallback to any RobotMovementController
+                if (player == null)
                 {
                     var rmc = UnityEngine.Object.FindFirstObjectByType<Robot.Player.Movement.RobotMovementController>();
-                    if (rmc != null) found = rmc.gameObject;
+                    if (rmc != null) player = rmc.transform;
                 }
-                if (found != null) player = found.transform;
             }
+
             if (player == null) return false;
+
             if (input == null) input = player.GetComponent<PlayerInputReader>();
             pickupTarget = player.Find("PickupTarget");
             if (pickupTarget == null)
@@ -166,9 +206,42 @@ namespace Robot.ObjectHunt
             return true;
         }
 
+        private void EnsureTargetsCatalog()
+        {
+            if (targets != null && targets.Count > 0 && targets.Any(t => t != null && t.prefab != null)) return;
+            if (targets == null) targets = new List<TargetDefinition>();
+
+#if UNITY_EDITOR
+            string root = "Assets/ThirdParty/Selected/toy/";
+            (string id, TargetCategory category, string name, string file)[] catalog =
+            {
+                ("ball_01", TargetCategory.Ball, "Futbol Topu", "Prop_Ball_01.prefab"),
+                ("teddy_01", TargetCategory.TeddyBear, "Oyuncak Ayı", "Prop_TeddyBear_01.prefab"),
+                ("car_01", TargetCategory.ToyCar, "Oyuncak Araba", "Prop_ToyCar_01.prefab")
+            };
+            foreach (var item in catalog)
+            {
+                GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(root + item.file);
+                if (prefab != null)
+                {
+                    targets.Add(new TargetDefinition
+                    {
+                        objectId = item.id,
+                        category = item.category,
+                        displayName = item.name,
+                        prefab = prefab,
+                        worldScale = item.category == TargetCategory.ToyCar ? 1.5f : 1f,
+                        interactionRange = 4.5f,
+                        groundOffset = 0f
+                    });
+                }
+            }
+#endif
+        }
+
         private void SelectOne(TargetCategory category)
         {
-            List<TargetDefinition> pool = targets.Where(item => item.category == category).ToList();
+            List<TargetDefinition> pool = targets.Where(item => item != null && item.category == category && item.prefab != null).ToList();
             if (pool.Count == 0) return;
             selectedTargets.Add(pool[UnityEngine.Random.Range(0, pool.Count)]);
         }
@@ -177,26 +250,42 @@ namespace Robot.ObjectHunt
         {
             var result = new List<Vector3>();
             NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
-            if (triangulation.vertices == null || triangulation.vertices.Length == 0) return result;
-
-            var candidates = new List<Vector3>();
-            for (int i = 0; i < triangulation.vertices.Length; i++)
+            if (triangulation.vertices != null && triangulation.vertices.Length > 0)
             {
-                if (NavMesh.SamplePosition(triangulation.vertices[i], out NavMeshHit hit, 2.5f, NavMesh.AllAreas))
-                    candidates.Add(hit.position);
+                var candidates = new List<Vector3>();
+                for (int i = 0; i < triangulation.vertices.Length; i++)
+                {
+                    if (NavMesh.SamplePosition(triangulation.vertices[i], out NavMeshHit hit, 3.5f, NavMesh.AllAreas))
+                        candidates.Add(hit.position);
+                }
+
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    int swap = UnityEngine.Random.Range(i, candidates.Count);
+                    (candidates[i], candidates[swap]) = (candidates[swap], candidates[i]);
+                }
+
+                SelectSpacedCandidates(candidates, result, count, minimumTargetSpacing);
+                if (result.Count < count)
+                {
+                    SelectSpacedCandidates(candidates, result, count, Mathf.Max(5f, minimumTargetSpacing * 0.5f));
+                }
             }
 
-            for (int i = 0; i < candidates.Count; i++)
+            // Reliable fallback positions in city center
+            Vector3[] fallbacks = {
+                new Vector3(-4f, 0.05f, 5f),
+                new Vector3(5f, 0.05f, -3f),
+                new Vector3(0f, 0.05f, -8f),
+                new Vector3(-6f, 0.05f, -4f)
+            };
+            int fbIndex = 0;
+            while (result.Count < count && fbIndex < fallbacks.Length)
             {
-                int swap = UnityEngine.Random.Range(i, candidates.Count);
-                (candidates[i], candidates[swap]) = (candidates[swap], candidates[i]);
+                Vector3 fb = fallbacks[fbIndex++];
+                if (!result.Any(r => FlatDistance(r, fb) < 3f)) result.Add(fb);
             }
 
-            SelectSpacedCandidates(candidates, result, count, minimumTargetSpacing);
-            if (result.Count < count)
-            {
-                SelectSpacedCandidates(candidates, result, count, Mathf.Max(10f, minimumTargetSpacing * 0.5f));
-            }
             return result;
         }
 
