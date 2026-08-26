@@ -87,6 +87,7 @@ namespace Robot.Combat
                         }
                     }
                 }
+            }
         }
 
         private static IDamageable FindDamageable(Collider source)

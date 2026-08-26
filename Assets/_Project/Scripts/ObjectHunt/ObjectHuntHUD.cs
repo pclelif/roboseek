@@ -261,13 +261,27 @@ namespace Robot.ObjectHunt
             trackerPanel.SetActive(true);
         }
 
+        private Text toastText;
+
         private void HandleCollected(TargetDefinition target, int count)
         {
             int index = -1;
             for (int i = 0; i < manager.SelectedTargets.Count; i++) if (manager.SelectedTargets[i].objectId == target.objectId) index = i;
-            if (index < 0) return;
-            cardChecks[index].text = "✓";
-            cardLabels[index].color = new Color(1f, 1f, 1f, 0.45f);
+            if (index >= 0)
+            {
+                cardChecks[index].text = "✓";
+                cardLabels[index].color = new Color(1f, 1f, 1f, 0.45f);
+            }
+            StartCoroutine(ToastFeedbackRoutine(target.displayName));
+        }
+
+        private IEnumerator ToastFeedbackRoutine(string targetName)
+        {
+            if (toastText == null) yield break;
+            toastText.text = $"✓  {targetName.ToUpper()} BULUNDU! (+100)";
+            toastText.gameObject.SetActive(true);
+            yield return new WaitForSeconds(2.2f);
+            if (toastText != null) toastText.gameObject.SetActive(false);
         }
 
         private void HandleTimer(float seconds)
@@ -349,6 +363,12 @@ namespace Robot.ObjectHunt
             prompt.color = new Color(1f, 0.88f, 0.22f, 1f);
             promptPanel.SetActive(false);
             trackerPanel.SetActive(false);
+
+            toastText = Label(string.Empty, canvas.transform, 24, new Vector2(0f, 180f), new Vector2(560f, 60f));
+            toastText.color = new Color(0.2f, 0.9f, 0.4f, 1f);
+            toastText.fontStyle = FontStyle.Bold;
+            toastText.gameObject.SetActive(false);
+
             if (FindFirstObjectByType<EventSystem>() == null)
             {
                 GameObject eventSystem = new GameObject("Object Hunt EventSystem");
