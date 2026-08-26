@@ -199,6 +199,9 @@ namespace Robot.Editor
             if (networkRoot.GetComponent<NetworkSessionController>() == null)
                 networkRoot.AddComponent<NetworkSessionController>();
 
+            if (networkRoot.GetComponent<NetworkRoundManager>() == null)
+                networkRoot.AddComponent<NetworkRoundManager>();
+
             if (networkRoot.GetComponent<NetworkDebugLauncher>() == null)
                 networkRoot.AddComponent<NetworkDebugLauncher>();
 

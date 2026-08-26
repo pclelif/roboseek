@@ -288,7 +288,11 @@ namespace Robot.ObjectHunt
                     float dist = player != null ? FlatDistance(pt, origin) : 25f;
                     if (dist < 12f || dist > 60f) continue;
 
-                    // 3. Complete reachable walking path (robot can actually walk to it)
+                    // 3. Obstacle Collision Check: Ensure no cars, fences, buildings or obstacles intersect candidate
+                    if (Physics.CheckSphere(pt + Vector3.up * 0.45f, 0.65f, ~0, QueryTriggerInteraction.Ignore))
+                        continue;
+
+                    // 4. Complete reachable walking path (robot can actually walk to it)
                     if (hasOriginNav)
                     {
                         var path = new NavMeshPath();
@@ -296,7 +300,7 @@ namespace Robot.ObjectHunt
                             continue;
                     }
 
-                    if (candidates.Any(existing => FlatDistance(existing, pt) < 10f)) continue;
+                    if (candidates.Any(existing => FlatDistance(existing, pt) < 12f)) continue;
 
                     candidates.Add(pt);
                 }
@@ -346,13 +350,13 @@ namespace Robot.ObjectHunt
             // Sample exact walk and physical collider heights
             float walkY = position.y;
             float groundY = walkY;
-            if (Physics.Raycast(position + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 25f, ~0, QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f, ~0, QueryTriggerInteraction.Ignore))
             {
                 groundY = Mathf.Max(walkY, hit.point.y);
             }
 
-            // High elevation so balls and toys clearly float above sidewalks and pavements
-            float originElevation = definition.category == TargetCategory.Ball ? 0.50f : 0.35f;
+            // High elevation so all balls and toys clearly float above sidewalks and pavements
+            float originElevation = definition.category == TargetCategory.Ball ? 0.45f : 0.28f;
             originElevation += definition.groundOffset;
 
             Vector3 spawnWorldPos = new Vector3(position.x, groundY + originElevation, position.z);

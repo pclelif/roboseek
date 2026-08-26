@@ -87,8 +87,19 @@ namespace Robot.ObjectHunt
                 yield return null;
             }
 
-            // Step 6: Target HUD marks this toy completed
-            manager.NotifyCollected(this);
+            // Step 6: Target HUD marks this toy completed & Notify Network/Local Manager
+            if (Robot.Multiplayer.NetworkRoundManager.Instance != null && Robot.Multiplayer.NetworkRoundManager.Instance.IsSpawned)
+            {
+                var netObj = collector.GetComponent<Unity.Netcode.NetworkObject>();
+                ulong clientId = netObj != null ? netObj.OwnerClientId : 0;
+                Robot.Multiplayer.NetworkRoundManager.Instance.RequestPickupTargetServerRpc(definition.objectId, clientId);
+            }
+
+            if (manager != null)
+            {
+                manager.NotifyCollected(this);
+            }
+
             gameObject.SetActive(false);
 
             // Step 7: Robot movement control restored

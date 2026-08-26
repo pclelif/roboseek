@@ -73,8 +73,8 @@ namespace Robot.ObjectHunt
 
             if (prompt != null && show)
             {
-                string targetName = nearest.Definition != null ? nearest.Definition.displayName.ToUpper() : "OYUNCAK";
-                prompt.text = $"<b>[E]</b>  {targetName} TOPLA";
+                string targetName = nearest.Definition != null ? nearest.Definition.displayName.ToUpper() : "TARGET";
+                prompt.text = $"<b>[E]</b>  PRESS E TO PICK UP ({targetName})";
             }
 
             if (gameLoop != null && gameLoop.CurrentPhase == RoundPhase.Result && (UnityEngine.Input.GetKeyDown(KeyCode.Return) || UnityEngine.Input.GetKeyDown(KeyCode.Space)))
@@ -148,7 +148,23 @@ namespace Robot.ObjectHunt
             string foundObjects = manager.CollectedTargets.Count > 0
                 ? string.Join("  •  ", manager.CollectedTargets.Select(item => item.displayName))
                 : "NONE";
-            result.text = $"{status}\nFOUND  {data.foundCount} / 3   {foundObjects}\nTIME  {FormatTime(data.elapsedTime)}\nSCORE  +{data.roundScore}\nTOTAL  {data.totalScore}";
+
+            if (Robot.Multiplayer.NetworkRoundManager.Instance != null && Robot.Multiplayer.NetworkRoundManager.Instance.IsSpawned)
+            {
+                var scores = Robot.Multiplayer.NetworkRoundManager.Instance.GetAllScores();
+                string scoreLines = "\n<b>MULTIPLAYER SCOREBOARD:</b>\n";
+                foreach (var kvp in scores)
+                {
+                    int found = Robot.Multiplayer.NetworkRoundManager.Instance.GetFoundCount(kvp.Key);
+                    scoreLines += $"Player {kvp.Key + 1}: {found} Found | {kvp.Value} Pts\n";
+                }
+                result.text = $"{status}\nFOUND: {data.foundCount} / 3  ({foundObjects})\nTIME: {FormatTime(data.elapsedTime)}{scoreLines}";
+            }
+            else
+            {
+                result.text = $"{status}\nFOUND  {data.foundCount} / 3   {foundObjects}\nTIME  {FormatTime(data.elapsedTime)}\nSCORE  +{data.roundScore}\nTOTAL  {data.totalScore}";
+            }
+
             nextRoundButton.gameObject.SetActive(true);
         }
 
