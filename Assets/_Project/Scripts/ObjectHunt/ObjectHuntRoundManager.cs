@@ -42,6 +42,28 @@ namespace Robot.ObjectHunt
         public float RoundDuration => roundDuration;
         public int CollectedCount { get; private set; }
         public bool IsRoundActive => roundActive;
+        public bool EndedByDrowning { get; private set; }
+        public bool InteractionEnabled { get; private set; } = true;
+        public event Action InteractionSucceeded;
+        public void SetInteractionEnabled(bool value) => InteractionEnabled = value;
+        public bool AddExtraTime(float seconds)
+        {
+            if (!roundActive || seconds <= 0f) return false;
+            timeRemaining += seconds;
+            TimerChanged?.Invoke(timeRemaining);
+            return true;
+        }
+
+        // Lifecycle hook for UI navigation; selection and retrieval remain owned here.
+        public void EndRound()
+        {
+            roundActive = false;
+            CleanupTargets();
+            selectedTargets.Clear();
+            collectedTargets.Clear();
+            CollectedCount = 0;
+            RoundStarted?.Invoke(selectedTargets);
+        }
 
         private void Start()
         {
@@ -68,7 +90,7 @@ namespace Robot.ObjectHunt
             }
             catch { }
 #endif
-            if (interactPressed) TryPickupNearest();
+            if (interactPressed && InteractionEnabled) TryPickupNearest();
         }
 
         public void BeginRound()
@@ -78,6 +100,7 @@ namespace Robot.ObjectHunt
 
         public bool PrepareRound()
         {
+            EndedByDrowning = false;
             EnsureTargetsCatalog();
             ResolvePlayer();
 
@@ -95,14 +118,32 @@ namespace Robot.ObjectHunt
                 foreach (var t in targets)
                 {
                     if (selectedTargets.Count >= 3) break;
-                    if (t.prefab != null && !selectedTargets.Contains(t)) selectedTargets.Add(t);
+                    if (t != null && !selectedTargets.Contains(t)) selectedTargets.Add(t);
                 }
             }
 
-            List<Vector3> positions = FindSpawnPositions(selectedTargets.Count > 0 ? selectedTargets.Count : 3);
-            for (int i = 0; i < selectedTargets.Count && i < positions.Count; i++)
+            if (selectedTargets.Count < 3)
             {
-                SpawnTarget(selectedTargets[i], positions[i]);
+                CreateDefaultTargetDefinitions();
+                SelectOne(TargetCategory.Ball);
+                SelectOne(TargetCategory.TeddyBear);
+                SelectOne(TargetCategory.ToyCar);
+            }
+
+            // Spawn targets from catalog
+            List<Vector3> positions = FindSpawnPositions(targets.Count > 0 ? targets.Count : 12);
+            for (int i = 0; i < targets.Count && i < positions.Count; i++)
+            {
+                if (targets[i] != null && targets[i].prefab != null)
+                {
+                    SpawnTarget(targets[i], positions[i]);
+                }
+            }
+
+            // If activeTargets is still 0 (e.g. prefabs not assigned or positions failed), spawn robust fallbacks
+            if (activeTargets.Count == 0)
+            {
+                SpawnPrimitiveFallbackTargets();
             }
 
             CollectedCount = 0;
@@ -111,6 +152,48 @@ namespace Robot.ObjectHunt
             RoundStarted?.Invoke(selectedTargets);
             TimerChanged?.Invoke(timeRemaining);
             return activeTargets.Count > 0;
+        }
+
+        private void SpawnPrimitiveFallbackTargets()
+        {
+            Vector3 origin = player != null ? player.position : Vector3.zero;
+            Vector3[] offsets = {
+                new Vector3(-6f, 0.5f, 12f),
+                new Vector3(8f, 0.5f, 10f),
+                new Vector3(0f, 0.5f, -12f)
+            };
+
+            for (int i = 0; i < selectedTargets.Count && i < offsets.Length; i++)
+            {
+                var def = selectedTargets[i];
+                PrimitiveType pType = PrimitiveType.Sphere;
+                Color col = Color.yellow;
+
+                if (def.category == TargetCategory.Ball) { pType = PrimitiveType.Sphere; col = Color.cyan; }
+                else if (def.category == TargetCategory.TeddyBear) { pType = PrimitiveType.Cube; col = new Color(0.85f, 0.45f, 0.15f); }
+                else if (def.category == TargetCategory.ToyCar) { pType = PrimitiveType.Capsule; col = Color.red; }
+
+                Vector3 pos = origin + offsets[i];
+                if (Physics.Raycast(pos + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 25f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    pos = hit.point + Vector3.up * 0.35f;
+                }
+
+                GameObject go = GameObject.CreatePrimitive(pType);
+                go.name = "Target_" + def.objectId;
+                go.transform.position = pos;
+                go.transform.localScale = Vector3.one * (def.worldScale > 0 ? def.worldScale : 1f);
+
+                var renderer = go.GetComponent<Renderer>();
+                if (renderer != null) renderer.material.color = col;
+
+                var colComp = go.GetComponent<Collider>();
+                if (colComp != null) colComp.isTrigger = true;
+
+                var collectible = go.AddComponent<CollectibleTarget>();
+                collectible.Configure(this, def);
+                activeTargets.Add(collectible);
+            }
         }
 
         public void StartSearch()
@@ -123,11 +206,28 @@ namespace Robot.ObjectHunt
 
         public bool TryPickupNearest()
         {
+            if (!roundActive || !InteractionEnabled) return false;
             if (player == null) ResolvePlayer();
             if (player == null) return false;
             CollectibleTarget nearest = GetNearestInteractable();
             if (nearest == null) return false;
-            return nearest.TryCollect(player, pickupTarget);
+            
+            // Only allow picking up if it's one of the selected targets
+            bool isSelectedTarget = false;
+            foreach (var selected in selectedTargets)
+            {
+                if (selected.objectId == nearest.Definition.objectId)
+                {
+                    isSelectedTarget = true;
+                    break;
+                }
+            }
+            
+            if (!isSelectedTarget) { nearest.Reject(); return false; }
+            
+            bool success = nearest.TryCollect(player, pickupTarget);
+            if (success) InteractionSucceeded?.Invoke();
+            return success;
         }
 
         public CollectibleTarget GetNearestInteractable()
@@ -135,9 +235,20 @@ namespace Robot.ObjectHunt
             if (player == null) ResolvePlayer();
             if (player == null) return null;
             return activeTargets.Where(item => item != null && item.gameObject.activeSelf && !item.IsCollecting &&
-                FlatDistance(player.position, item.transform.position) <= 5.5f &&
-                Mathf.Abs(player.position.y - item.transform.position.y) < 5.0f)
+                CanReachTarget(item))
                 .OrderBy(item => FlatDistance(player.position, item.transform.position)).FirstOrDefault();
+        }
+
+        private bool CanReachTarget(CollectibleTarget item)
+        {
+            if (Robot.Core.MapManager.SelectedMap.enableCityMechanics)
+                return FlatDistance(player.position, item.transform.position) <= 5.5f && Mathf.Abs(player.position.y - item.transform.position.y) < 5f;
+            float range = item.Definition != null ? item.Definition.interactionRange : 2.4f;
+            if (FlatDistance(player.position, item.transform.position) > range || Mathf.Abs(player.position.y - item.transform.position.y) > 1.8f) return false;
+            Vector3 start = player.position + Vector3.up;
+            Vector3 end = item.transform.position + Vector3.up * .2f;
+            return !Physics.Linecast(start, end, out var hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ||
+                hit.transform == item.transform || hit.transform.IsChildOf(item.transform);
         }
 
         internal void NotifyCollected(CollectibleTarget collectible)
@@ -220,7 +331,6 @@ namespace Robot.ObjectHunt
             if (targets == null) targets = new List<TargetDefinition>();
             targets.Clear();
 
-#if UNITY_EDITOR
             string root = "Assets/ThirdParty/Selected/toy/";
             (string id, TargetCategory category, string name, string file)[] catalog =
             {
@@ -239,7 +349,14 @@ namespace Robot.ObjectHunt
             };
             foreach (var item in catalog)
             {
-                GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(root + item.file);
+                GameObject prefab = null;
+#if UNITY_EDITOR
+                prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(root + item.file);
+#endif
+                if (prefab == null)
+                {
+                    prefab = Resources.Load<GameObject>("Toys/" + item.file.Replace(".prefab", ""));
+                }
                 if (prefab != null)
                 {
                     targets.Add(new TargetDefinition
@@ -254,7 +371,27 @@ namespace Robot.ObjectHunt
                     });
                 }
             }
-#endif
+
+            if (targets.Count < 3)
+            {
+                CreateDefaultTargetDefinitions();
+            }
+        }
+
+        private void CreateDefaultTargetDefinitions()
+        {
+            if (!targets.Any(t => t.category == TargetCategory.Ball))
+            {
+                targets.Add(new TargetDefinition { objectId = "ball_01", category = TargetCategory.Ball, displayName = "Futbol Topu", worldScale = 1f, interactionRange = 5.5f });
+            }
+            if (!targets.Any(t => t.category == TargetCategory.TeddyBear))
+            {
+                targets.Add(new TargetDefinition { objectId = "teddy_01", category = TargetCategory.TeddyBear, displayName = "Oyuncak Ayı", worldScale = 1f, interactionRange = 5.5f });
+            }
+            if (!targets.Any(t => t.category == TargetCategory.ToyCar))
+            {
+                targets.Add(new TargetDefinition { objectId = "car_yellow", category = TargetCategory.ToyCar, displayName = "Oyuncak Araba", worldScale = 1.5f, interactionRange = 5.5f });
+            }
         }
 
         private void SelectOne(TargetCategory category)
@@ -266,6 +403,17 @@ namespace Robot.ObjectHunt
 
         private List<Vector3> FindSpawnPositions(int count)
         {
+            var layout = FindFirstObjectByType<Robot.Core.MapLevelLayout>();
+            if (layout != null)
+            {
+                var authored = layout.GetToyPositions();
+                for (int i = authored.Count - 1; i > 0; --i)
+                {
+                    int j = UnityEngine.Random.Range(0, i + 1);
+                    (authored[i], authored[j]) = (authored[j], authored[i]);
+                }
+                return authored;
+            }
             var result = new List<Vector3>();
             if (player == null) ResolvePlayer();
             Vector3 origin = player != null ? player.position : Vector3.zero;
@@ -294,9 +442,21 @@ namespace Robot.ObjectHunt
                     float dist = player != null ? FlatDistance(pt, origin) : 25f;
                     if (dist < 12f || dist > 60f) continue;
 
-                    // 3. Obstacle Collision Check: Ensure no cars, fences, buildings or obstacles intersect candidate
-                    if (Physics.CheckSphere(pt + Vector3.up * 0.45f, 0.65f, ~0, QueryTriggerInteraction.Ignore))
-                        continue;
+                    // 3. Obstacle Collision Check: Check for tall obstacles only, ignoring terrain/ground surface
+                    var hitColliders = Physics.OverlapSphere(pt + Vector3.up * 0.75f, 0.45f, ~0, QueryTriggerInteraction.Ignore);
+                    bool hitObstacle = false;
+                    foreach (var c in hitColliders)
+                    {
+                        if (c != null && !c.isTrigger && c.gameObject != null && c.GetComponent<Terrain>() == null && !c.name.ToLowerInvariant().Contains("terrain") && (player == null || c.transform.root != player))
+                        {
+                            if (c.bounds.max.y > pt.y + 0.35f)
+                            {
+                                hitObstacle = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hitObstacle) continue;
 
                     // 4. Complete reachable walking path (robot can actually walk to it)
                     if (hasOriginNav)
@@ -324,17 +484,21 @@ namespace Robot.ObjectHunt
                 }
             }
 
-            // Reliable street-level plaza fallbacks in Demo city
-            Vector3[] streetFallbacks = {
-                new Vector3(-6f, 0.05f, -12f),
-                new Vector3(8f, 0.05f, -8f),
-                new Vector3(-12f, 0.05f, 6f),
-                new Vector3(10f, 0.05f, 12f)
-            };
+            // Map-aware fallbacks from active MapDefinition
+            var activeMap = Robot.Core.MapManager.SelectedMap;
+            IReadOnlyList<Vector3> fallbacks = activeMap != null && activeMap.fallbackToyPositions != null && activeMap.fallbackToyPositions.Count > 0
+                ? activeMap.fallbackToyPositions
+                : new List<Vector3> {
+                    new Vector3(-6f, 0.05f, -12f),
+                    new Vector3(8f, 0.05f, -8f),
+                    new Vector3(-12f, 0.05f, 6f),
+                    new Vector3(10f, 0.05f, 12f)
+                };
+
             int fbIndex = 0;
-            while (result.Count < count && fbIndex < streetFallbacks.Length)
+            while (result.Count < count && fbIndex < fallbacks.Count)
             {
-                Vector3 fb = streetFallbacks[fbIndex++];
+                Vector3 fb = fallbacks[fbIndex++];
                 if (!result.Any(r => FlatDistance(r, fb) < 4f)) result.Add(fb);
             }
 
@@ -356,7 +520,8 @@ namespace Robot.ObjectHunt
             // Sample exact walk and physical collider heights
             float walkY = position.y;
             float groundY = walkY;
-            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f, ~0, QueryTriggerInteraction.Ignore))
+            if (FindFirstObjectByType<Robot.Core.MapLevelLayout>() == null &&
+                Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f, ~0, QueryTriggerInteraction.Ignore))
             {
                 groundY = Mathf.Max(walkY, hit.point.y);
             }
@@ -380,6 +545,16 @@ namespace Robot.ObjectHunt
             if (collectible == null) collectible = instance.AddComponent<CollectibleTarget>();
             collectible.Configure(this, definition);
             activeTargets.Add(collectible);
+
+            // Intro sparkle effect for newly spawned target
+            CollectParticleEffect.SpawnSparkleIntro(spawnWorldPos);
+        }
+
+        public void FailFromDrowning()
+        {
+            if (!roundActive) return;
+            EndedByDrowning = true;
+            FailRound();
         }
 
         private void FailRound()

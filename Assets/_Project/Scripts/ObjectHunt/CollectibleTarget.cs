@@ -12,6 +12,7 @@ namespace Robot.ObjectHunt
         private TargetDefinition definition;
         private Vector3 basePosition;
         private bool collecting;
+        private RobotMovementController collectingMovement;
 
         public TargetDefinition Definition => definition;
         public bool IsCollecting => collecting;
@@ -21,6 +22,7 @@ namespace Robot.ObjectHunt
             manager = owner;
             definition = target;
             basePosition = transform.position;
+            WorldSafety.AddMissingSolidColliders(gameObject);
             foreach (Rigidbody body in GetComponentsInChildren<Rigidbody>())
             {
                 body.isKinematic = true;
@@ -28,29 +30,53 @@ namespace Robot.ObjectHunt
             }
             foreach (Collider col in GetComponentsInChildren<Collider>())
             {
-                col.isTrigger = true;
+                col.isTrigger = false;
+                col.enabled = true;
             }
         }
 
         private void Update()
         {
             if (collecting) return;
-            transform.position = basePosition + Vector3.up * (0.25f + Mathf.Sin(Time.time * 3f) * 0.12f);
-            transform.Rotate(0f, 45f * Time.deltaTime, 0f, Space.World);
+            // Solid toys stay grounded; only their renderers animate on rejection.
         }
 
         public bool TryCollect(Transform collector, Transform pickupTarget)
         {
             if (collecting || definition == null || collector == null) return false;
+            collectingMovement = collector.GetComponent<RobotMovementController>();
             collecting = true;
+            CollectParticleEffect.Spawn(transform.position);
+            Robot.Audio.AudioManager.Instance?.PlayTargetCorrectPickup();
+            foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
             StartCoroutine(CollectRoutine(collector, pickupTarget));
             return true;
+        }
+
+        public void Reject()
+        {
+            if (collecting) return;
+            Robot.Audio.AudioManager.Instance?.PlayTargetWrongPickup();
+            var feedback = GetComponent<WrongItemFeedback>();
+            if (feedback == null) feedback = gameObject.AddComponent<WrongItemFeedback>();
+            feedback.Play();
+        }
+
+        private void OnDisable()
+        {
+            // SetActive(false) stops this object's coroutines. Release here on completion
+            // or round cancellation instead of after an unreachable coroutine yield.
+            if (collectingMovement == null) return;
+            var health = collectingMovement.GetComponent<CombatHealth>();
+            collectingMovement.SetControlEnabled(health == null || !health.IsKnockedOut);
+            collectingMovement = null;
         }
 
         private IEnumerator CollectRoutine(Transform collector, Transform pickupTarget)
         {
             RobotMovementController movement = collector.GetComponent<RobotMovementController>();
             RobotAnimator animator = collector.GetComponent<RobotAnimator>();
+            collectingMovement = movement;
 
             // Step 1: Robot stops
             movement?.SetControlEnabled(false);
@@ -87,6 +113,9 @@ namespace Robot.ObjectHunt
                 yield return null;
             }
 
+            // Trigger visual particle feedback effect
+            CollectParticleEffect.Spawn(transform.position);
+
             // Step 6: Target HUD marks this toy completed & Notify Network/Local Manager
             if (Robot.Multiplayer.NetworkRoundManager.Instance != null && Robot.Multiplayer.NetworkRoundManager.Instance.IsSpawned)
             {
@@ -102,9 +131,6 @@ namespace Robot.ObjectHunt
 
             gameObject.SetActive(false);
 
-            // Step 7: Robot movement control restored
-            yield return new WaitForSeconds(0.05f);
-            if (movement != null) movement.SetControlEnabled(true);
         }
     }
 }

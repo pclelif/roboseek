@@ -6,6 +6,7 @@ using Robot.Robots.Customization;
 
 namespace Robot.NPC
 {
+    [DefaultExecutionOrder(50)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(AttackSlotCoordinator))]
     public sealed class NpcSpawnManager : MonoBehaviour
@@ -16,6 +17,9 @@ namespace Robot.NPC
         [SerializeField] private Transform[] spawnPoints;
         [SerializeField] private AggressionZone[] aggressionZones;
         [SerializeField, Min(0f)] private float minimumPlayerSpawnDistance = 12f;
+
+        public IReadOnlyList<Transform> SpawnPoints => spawnPoints;
+        public bool HasSpawnPoints => spawnPoints != null && spawnPoints.Length > 0;
 
         private readonly List<NpcRobotController> spawned = new List<NpcRobotController>();
         private AttackSlotCoordinator slots;
@@ -43,8 +47,30 @@ namespace Robot.NPC
             if (playerColors != null) playerColors.ThemeChanged -= HandlePlayerThemeChanged;
         }
 
+        public void ConfigureForRuntime(Transform[] points, Transform playerTransform)
+        {
+            spawnPoints = points;
+            if (playerTransform != null) player = playerTransform;
+            EnsureNpcPrefab();
+            SpawnAll();
+        }
+
+        private void EnsureNpcPrefab()
+        {
+            if (npcPrefab != null) return;
+            npcPrefab = Resources.Load<NpcRobotController>("Characters/NPC/RobotNPC");
+#if UNITY_EDITOR
+            if (npcPrefab == null)
+            {
+                npcPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<NpcRobotController>("Assets/_Project/Prefabs/Characters/NPC/RobotNPC.prefab");
+            }
+#endif
+        }
+
         public void SpawnAll()
         {
+            if (spawned.Count > 0) return;
+            EnsureNpcPrefab();
             if (npcPrefab == null || player == null) return;
             List<Transform> validPoints = GetValidSpawnPoints();
             int count = Mathf.Min(npcCount, validPoints.Count);
@@ -75,7 +101,7 @@ namespace Robot.NPC
         {
             if (RobotColorService.Instance != null && RobotColorService.Instance.Palette != null)
             {
-                int excludedIndex = playerColors != null ? Mathf.Max(0, playerColors.ActivePaletteIndex) : RobotColorService.Instance.LoadSinglePlayerSelection();
+                int excludedIndex = playerColors != null ? (playerColors.ActivePaletteIndex >= 0 ? playerColors.ActivePaletteIndex : (int)playerColors.ActiveTheme) : RobotColorService.Instance.LoadSinglePlayerSelection();
                 var indices = new List<int>(RobotColorService.Instance.GetAvailableIndices(excludedIndex));
                 for (int i = indices.Count - 1; i > 0; i--)
                 {
@@ -85,7 +111,9 @@ namespace Robot.NPC
                 for (int i = 0; i < spawned.Count && i < indices.Count; i++)
                 {
                     RobotColorCustomizer colors = spawned[i].GetComponent<RobotColorCustomizer>();
-                    colors?.ApplyPaletteIndex(indices[i]);
+                    if (colors == null) continue;
+                    colors.SetPalette(RobotColorService.Instance.Palette);
+                    colors.ApplyPaletteIndex(indices[i]);
                 }
                 return;
             }

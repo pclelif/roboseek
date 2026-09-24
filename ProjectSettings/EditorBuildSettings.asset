@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/_Project/Scenes/RoboSeek_Lobby.unity
+    guid: eee78d72bf4fb406480f8beecf423383
+  - enabled: 1
     path: Assets/_Project/Scenes/Sandbox/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
@@ -20,6 +23,27 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Project/Scenes/Demo2.unity
     guid: f3183a02ebd1e47c994aa07421862074
+  - enabled: 1
+    path: Assets/ThirdParty/SyntyStudios/PolygonAdventure/Scenes/Demo.unity
+    guid: e120d0e37ab427a4cb1c20085b85c472
+  - enabled: 1
+    path: Assets/ThirdParty/SyntyStudios/PolygonPrototype/Scenes/Demo.unity
+    guid: e308ad70bb070dd41a0c97e5d8548173
+  - enabled: 1
+    path: Assets/ThirdParty/SyntyStudios/PolygonStarter/Scenes/Demo.unity
+    guid: 5215016c20f88ea498985ac3e0ab4f9d
+  - enabled: 1
+    path: Assets/_Project/Scenes/Maps/RoboSeek_City.unity
+    guid: d37eafd2bb3134e638ea0157ad6d8f0a
+  - enabled: 1
+    path: Assets/_Project/Scenes/Maps/RoboSeek_Adventure.unity
+    guid: 4b0b4f2c00349467da2cfa63997e210b
+  - enabled: 1
+    path: Assets/_Project/Scenes/Maps/RoboSeek_Polygon.unity
+    guid: b563fe3539b2542e2b759f44a1b01193
+  - enabled: 1
+    path: Assets/_Project/Scenes/Maps/RoboSeek_PolygonStarter.unity
+    guid: 71773e31d652a4104968c570689cc409
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

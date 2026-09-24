@@ -421,6 +421,7 @@ namespace RobotHunt.Generator
                 }
 
                 if (instance == null) return false;
+                Robot.Player.Movement.WorldSafety.AddMissingSolidColliders(instance);
 
                 // Set a clear name in Hierarchy
                 instance.name = $"[{catConfig.categoryName}] {prefab.name}";

@@ -41,80 +41,20 @@ namespace Robot.Robots.Customization
         [SerializeField] private EyeColorMode eyeMode = EyeColorMode.SleekBlack;
         [SerializeField] private List<Renderer> targetRenderers = new List<Renderer>();
 
-        [Header("Color Presets (Matched to User Scene View Cars: Siyah -> Kırmızı -> Turuncu -> Sarı -> Yeşil -> Mavi -> Mor -> Pembe -> Kahverengi -> Beyaz)")]
+        [Header("Color Presets (Panda Toy Matched Finish)")]
         [SerializeField]
         private ColorPreset[] presets = new ColorPreset[]
         {
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Siyah, 
-                name = "Siyah", 
-                bodyColor = new Color(0.31f, 0.31f, 0.31f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Kirmizi, 
-                name = "Kırmızı", 
-                bodyColor = new Color(0.62f, 0.24f, 0.24f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Turuncu, 
-                name = "Turuncu", 
-                bodyColor = new Color(0.75f, 0.45f, 0.28f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Sari, 
-                name = "Sarı", 
-                bodyColor = new Color(0.78f, 0.68f, 0.38f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Yesil, 
-                name = "Yeşil", 
-                bodyColor = new Color(0.38f, 0.55f, 0.45f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Mavi, 
-                name = "Mavi", 
-                bodyColor = new Color(0.35f, 0.45f, 0.65f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Mor, 
-                name = "Mor", 
-                bodyColor = new Color(0.50f, 0.35f, 0.55f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Pembe, 
-                name = "Pembe", 
-                bodyColor = new Color(0.72f, 0.42f, 0.52f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Kahverengi, 
-                name = "Kahverengi", 
-                bodyColor = new Color(0.48f, 0.32f, 0.22f), 
-                jointColor = new Color(0.14f, 0.14f, 0.14f)
-            },
-            new ColorPreset 
-            { 
-                theme = ColorTheme.Beyaz, 
-                name = "Beyaz", 
-                bodyColor = new Color(0.80f, 0.80f, 0.80f), 
-                jointColor = new Color(0.16f, 0.16f, 0.16f)
-            }
+            new ColorPreset { theme = ColorTheme.Siyah, name = "Siyah", bodyColor = new Color(0.14f, 0.14f, 0.16f), jointColor = new Color(0.08f, 0.08f, 0.10f) },
+            new ColorPreset { theme = ColorTheme.Kirmizi, name = "Kırmızı", bodyColor = new Color(0.74f, 0.12f, 0.12f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Turuncu, name = "Turuncu", bodyColor = new Color(0.90f, 0.45f, 0.10f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Sari, name = "Sarı", bodyColor = new Color(0.94f, 0.72f, 0.10f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Yesil, name = "Yeşil", bodyColor = new Color(0.16f, 0.64f, 0.16f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Mavi, name = "Mavi", bodyColor = new Color(0.15f, 0.42f, 0.78f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Mor, name = "Mor", bodyColor = new Color(0.52f, 0.20f, 0.68f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Pembe, name = "Pembe", bodyColor = new Color(0.85f, 0.35f, 0.52f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Kahverengi, name = "Kahverengi", bodyColor = new Color(0.48f, 0.30f, 0.18f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+            new ColorPreset { theme = ColorTheme.Beyaz, name = "Beyaz", bodyColor = new Color(0.92f, 0.93f, 0.95f), jointColor = new Color(0.20f, 0.20f, 0.22f) }
         };
 
         private static readonly int BaseColorHash = Shader.PropertyToID("_BaseColor");
@@ -125,26 +65,69 @@ namespace Robot.Robots.Customization
 
         public ColorTheme ActiveTheme => activeTheme;
         public string ActiveThemeName => GetPreset(activeTheme).name;
-        public Color ActiveThemeColor => GetPreset(activeTheme).bodyColor;
+        public Color ActiveThemeColor => palette != null && palette.TryGet(ActivePaletteIndex, out var entry) ? entry.bodyColor : GetPreset(activeTheme).bodyColor;
         public event Action<ColorTheme> ThemeChanged;
         public int ActivePaletteIndex { get; private set; } = -1;
 
         private void Awake()
         {
-            if (targetRenderers.Count == 0)
+            EnsurePaletteReference();
+            SyncPresetsWithVibrantColors();
+            if (targetRenderers == null || targetRenderers.Count == 0)
             {
                 GetComponentsInChildren(true, targetRenderers);
             }
         }
 
+        private void OnValidate()
+        {
+            EnsurePaletteReference();
+            SyncPresetsWithVibrantColors();
+        }
+
+        private void EnsurePaletteReference()
+        {
+            if (palette == null && RobotColorService.Instance != null) palette = RobotColorService.Instance.Palette;
+            if (palette == null)
+            {
+#if UNITY_EDITOR
+                palette = UnityEditor.AssetDatabase.LoadAssetAtPath<RobotColorPalette>("Assets/_Project/Data/RobotColorPalette.asset");
+#endif
+            }
+        }
+
+        private void SyncPresetsWithVibrantColors()
+        {
+            presets = new ColorPreset[]
+            {
+                new ColorPreset { theme = ColorTheme.Siyah, name = "Siyah", bodyColor = new Color(0.14f, 0.14f, 0.16f), jointColor = new Color(0.08f, 0.08f, 0.10f) },
+                new ColorPreset { theme = ColorTheme.Kirmizi, name = "Kırmızı", bodyColor = new Color(0.74f, 0.12f, 0.12f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Turuncu, name = "Turuncu", bodyColor = new Color(0.90f, 0.45f, 0.10f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Sari, name = "Sarı", bodyColor = new Color(0.94f, 0.72f, 0.10f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Yesil, name = "Yeşil", bodyColor = new Color(0.16f, 0.64f, 0.16f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Mavi, name = "Mavi", bodyColor = new Color(0.15f, 0.42f, 0.78f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Mor, name = "Mor", bodyColor = new Color(0.52f, 0.20f, 0.68f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Pembe, name = "Pembe", bodyColor = new Color(0.85f, 0.35f, 0.52f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Kahverengi, name = "Kahverengi", bodyColor = new Color(0.48f, 0.30f, 0.18f), jointColor = new Color(0.14f, 0.14f, 0.14f) },
+                new ColorPreset { theme = ColorTheme.Beyaz, name = "Beyaz", bodyColor = new Color(0.92f, 0.93f, 0.95f), jointColor = new Color(0.20f, 0.20f, 0.22f) }
+            };
+        }
+
         private void Start()
         {
             EnsureUrpMaterials();
-            if (palette == null && RobotColorService.Instance != null) palette = RobotColorService.Instance.Palette;
-            int initialIndex = CompareTag("Player")
-                ? PlayerPrefs.GetInt(RobotColorService.PlayerPreferenceKey, (int)activeTheme) : (int)activeTheme;
+            EnsurePaletteReference();
+            SyncPresetsWithVibrantColors();
+            // The lobby showcase is an introduction, not a persisted loadout.
+            // It always opens yellow; a player can change colour from the lobby.
+            bool isLobbyPreview = GetComponentInParent<Robot.UI.Production.LobbyAmbientMotion>() != null;
+            int initialIndex = isLobbyPreview
+                ? (int)ColorTheme.Sari
+                : CompareTag("Player")
+                    ? PlayerPrefs.GetInt(RobotColorService.PlayerPreferenceKey, (int)ColorTheme.Sari)
+                    : (int)activeTheme;
             if (palette != null) ApplyPaletteIndex(initialIndex);
-            else ApplyTheme(activeTheme);
+            else ApplyTheme((ColorTheme)Mathf.Clamp(initialIndex, 0, presets.Length - 1));
         }
 
         private void EnsureUrpMaterials()
@@ -187,7 +170,7 @@ namespace Robot.Robots.Customization
             {
                 if (ren == null) continue;
 
-                Material[] mats = ren.materials;
+                Material[] mats = Application.isPlaying ? ren.materials : ren.sharedMaterials;
                 for (int i = 0; i < mats.Length; i++)
                 {
                     Material mat = mats[i];
@@ -211,11 +194,12 @@ namespace Robot.Robots.Customization
                         if (mat.HasProperty(SmoothnessHash)) mat.SetFloat(SmoothnessHash, 0.5f);
                         if (mat.HasProperty(MetallicHash)) mat.SetFloat(MetallicHash, 0.7f);
                     }
-                    else if (matName.Contains("M_AtlasEmissive") || matName.Contains("Emissive")) // Eyes (Sleek Black)
+                    else if (matName.Contains("M_AtlasEmissive") || matName.Contains("Emissive") || matName.Contains("Unlit") || matName.Contains("Eye")) // Eyes (Sleek Black)
                     {
                         mat.SetColor(BaseColorHash, eyesColor);
                         mat.SetColor(ColorHash, eyesColor);
                         if (mat.HasProperty(EmissionColorHash)) mat.SetColor(EmissionColorHash, Color.black);
+                        mat.DisableKeyword("_EMISSION");
                         if (mat.HasProperty(SmoothnessHash)) mat.SetFloat(SmoothnessHash, 0.9f);
                     }
                     else
@@ -259,15 +243,17 @@ namespace Robot.Robots.Customization
             foreach (Renderer ren in targetRenderers)
             {
                 if (ren == null) continue;
-                foreach (Material mat in ren.materials)
+                Material[] mats = Application.isPlaying ? ren.materials : ren.sharedMaterials;
+                foreach (Material mat in mats)
                 {
                     if (mat == null) continue;
                     string matName = mat.name;
                     Color applied = matName.Contains("Base") && !matName.Contains("Offset") ? jointColor :
-                        matName.Contains("Emissive") ? eyesColor : bodyColor;
+                        (matName.Contains("Emissive") || matName.Contains("Unlit") || matName.Contains("Eye")) ? eyesColor : bodyColor;
                     if (mat.HasProperty(BaseColorHash)) mat.SetColor(BaseColorHash, applied);
                     if (mat.HasProperty(ColorHash)) mat.SetColor(ColorHash, applied);
                     if (mat.HasProperty(EmissionColorHash)) mat.SetColor(EmissionColorHash, Color.black);
+                    mat.DisableKeyword("_EMISSION");
                 }
             }
         }

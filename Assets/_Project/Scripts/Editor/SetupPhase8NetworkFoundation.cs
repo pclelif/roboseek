@@ -46,16 +46,16 @@ namespace Robot.Editor
             }
             palette.SetEntries(new[]
             {
-                Entry("Black", "Black", 0.31f, 0.31f, 0.31f),
-                Entry("Red", "Red", 0.62f, 0.24f, 0.24f),
-                Entry("Orange", "Orange", 0.75f, 0.45f, 0.28f),
-                Entry("Yellow", "Yellow", 0.78f, 0.68f, 0.38f),
-                Entry("Green", "Green", 0.38f, 0.55f, 0.45f),
-                Entry("Blue", "Blue", 0.35f, 0.45f, 0.65f),
-                Entry("Purple", "Purple", 0.50f, 0.35f, 0.55f),
-                Entry("Pink", "Pink", 0.72f, 0.42f, 0.52f),
-                Entry("Brown", "Brown", 0.48f, 0.32f, 0.22f),
-                Entry("White", "White", 0.80f, 0.80f, 0.80f, 0.16f)
+                Entry("Black", "Black", 0.14f, 0.14f, 0.16f, 0.08f),
+                Entry("Red", "Red", 0.74f, 0.12f, 0.12f),
+                Entry("Orange", "Orange", 0.90f, 0.45f, 0.10f),
+                Entry("Yellow", "Yellow", 0.94f, 0.72f, 0.10f),
+                Entry("Green", "Green", 0.16f, 0.64f, 0.16f),
+                Entry("Blue", "Blue", 0.15f, 0.42f, 0.78f),
+                Entry("Purple", "Purple", 0.52f, 0.20f, 0.68f),
+                Entry("Pink", "Pink", 0.85f, 0.35f, 0.52f),
+                Entry("Brown", "Brown", 0.48f, 0.30f, 0.18f),
+                Entry("White", "White", 0.92f, 0.93f, 0.95f, 0.20f)
             });
             EditorUtility.SetDirty(palette);
             return palette;

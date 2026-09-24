@@ -1,0 +1,1 @@
+PASS: lobby, language, settings, yellow timer/checks, real pickups, knockout/pause/recovery, world bounds, underwater, shared result pose, complete round and return

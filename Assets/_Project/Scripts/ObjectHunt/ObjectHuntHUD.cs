@@ -32,6 +32,8 @@ namespace Robot.ObjectHunt
 
         private void Awake()
         {
+            // Retained for legacy scenes; a disabled component must not construct its old Canvas.
+            if (!enabled) return;
             manager = GetComponent<ObjectHuntRoundManager>();
             gameLoop = GetComponent<RoundGameLoop>();
             BuildUI();
@@ -63,6 +65,11 @@ namespace Robot.ObjectHunt
             }
         }
 
+        private GameObject jetpackPanel;
+        private Image jetpackFill;
+        private Text jetpackLabel;
+        private Robot.Player.Movement.RobotJetpackController cachedJetpack;
+
         private void Update()
         {
             CollectibleTarget nearest = manager != null ? manager.GetNearestInteractable() : null;
@@ -77,8 +84,33 @@ namespace Robot.ObjectHunt
                 prompt.text = $"<b>[E]</b>  PRESS E TO PICK UP ({targetName})";
             }
 
+            UpdateJetpackUI();
+
             if (gameLoop != null && gameLoop.CurrentPhase == RoundPhase.Result && (UnityEngine.Input.GetKeyDown(KeyCode.Return) || UnityEngine.Input.GetKeyDown(KeyCode.Space)))
                 gameLoop.StartNextRound();
+        }
+
+        private void UpdateJetpackUI()
+        {
+            if (cachedJetpack == null)
+            {
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null) cachedJetpack = player.GetComponent<Robot.Player.Movement.RobotJetpackController>();
+            }
+
+            if (cachedJetpack != null)
+            {
+                if (jetpackPanel != null && !jetpackPanel.activeSelf) jetpackPanel.SetActive(true);
+                if (jetpackFill != null) jetpackFill.fillAmount = cachedJetpack.FuelNormalized;
+                if (jetpackLabel != null)
+                {
+                    jetpackLabel.text = cachedJetpack.IsFlying ? "⚡ JETPACK FLYING" : cachedJetpack.IsGliding ? "🪂 GLIDING" : "⚡ JETPACK";
+                }
+            }
+            else if (jetpackPanel != null && jetpackPanel.activeSelf)
+            {
+                jetpackPanel.SetActive(false);
+            }
         }
 
         private void HandleRoundStarted(IReadOnlyList<TargetDefinition> targets)
@@ -367,7 +399,7 @@ namespace Robot.ObjectHunt
             toastText = Label(string.Empty, canvas.transform, 24, new Vector2(0f, 180f), new Vector2(560f, 60f));
             toastText.color = new Color(0.2f, 0.9f, 0.4f, 1f);
             toastText.fontStyle = FontStyle.Bold;
-            toastText.gameObject.SetActive(false);
+            BuildJetpackFuelUI();
 
             if (FindFirstObjectByType<EventSystem>() == null)
             {
@@ -375,6 +407,31 @@ namespace Robot.ObjectHunt
                 eventSystem.AddComponent<EventSystem>();
                 eventSystem.AddComponent<StandaloneInputModule>();
             }
+        }
+
+        private void BuildJetpackFuelUI()
+        {
+            jetpackPanel = Panel("Jetpack Fuel Bar", canvas.transform, new Vector2(0f, 0f), new Vector2(230f, 32f));
+            RectTransform rect = jetpackPanel.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
+            rect.anchoredPosition = new Vector2(25f, 25f);
+            jetpackPanel.GetComponent<Image>().color = new Color(0.06f, 0.08f, 0.12f, 0.88f);
+
+            GameObject fillObj = new GameObject("FuelFill");
+            fillObj.transform.SetParent(jetpackPanel.transform, false);
+            RectTransform fillRect = fillObj.AddComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero; fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = new Vector2(4f, 4f); fillRect.offsetMax = new Vector2(-4f, -4f);
+            jetpackFill = fillObj.AddComponent<Image>();
+            jetpackFill.type = Image.Type.Filled;
+            jetpackFill.fillMethod = Image.FillMethod.Horizontal;
+            jetpackFill.color = new Color(0.2f, 0.85f, 1.0f, 0.92f);
+
+            jetpackLabel = Label("⚡ JETPACK", jetpackPanel.transform, 13, Vector2.zero, new Vector2(220f, 30f));
+            jetpackLabel.fontStyle = FontStyle.Bold;
+            jetpackLabel.color = Color.white;
+            jetpackPanel.SetActive(false);
         }
 
         private void BuildPreview(RawImage image, TargetDefinition definition, int index)
@@ -428,7 +485,7 @@ namespace Robot.ObjectHunt
         private static Text Label(string value, Transform parent, int size, Vector2 position, Vector2 dimensions)
         {
             Text text = Child<Text>(value, parent, position, dimensions);
-            text.text = value; text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.text = value; text.font = Robot.UI.UITheme.GetKenneyFont();
             text.fontSize = size; text.color = Color.white; text.alignment = TextAnchor.MiddleCenter;
             return text;
         }

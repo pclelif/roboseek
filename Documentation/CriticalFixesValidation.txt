@@ -1,0 +1,33 @@
+Unity 6000.3.9f1 — Play Mode validation
+
+CRITICAL PASS: Multiplayer disables and greys Start Game
+CRITICAL PASS: Direct multiplayer start is blocked
+CRITICAL PASS: Lobby card raised
+CRITICAL PASS: Gameplay search started
+CRITICAL PASS: Kenney health bar attached to gameplay HUD
+CRITICAL PASS: Health bar has sprite and responds to damage
+CRITICAL PASS: Health bar responds to healing
+CRITICAL PASS: Solid toy: Target_ball_01
+CRITICAL PASS: Solid toy: Target_ball_02
+CRITICAL PASS: Solid toy: Target_ball_03
+CRITICAL PASS: Solid toy: Target_ball_04
+CRITICAL PASS: Solid toy: Target_teddy_01
+CRITICAL PASS: Solid toy: Target_teddy_02
+CRITICAL PASS: Solid toy: Target_teddy_03
+CRITICAL PASS: Solid toy: Target_teddy_04
+CRITICAL PASS: Solid toy: Target_car_blue
+CRITICAL PASS: Solid toy: Target_car_green
+CRITICAL PASS: Solid toy: Target_car_yellow
+CRITICAL PASS: Solid toy: Target_car_red
+CRITICAL PASS: Real Ambo vehicle shows healing prompt
+CRITICAL PASS: H heals at the ambulance health=200 key=True
+CRITICAL PASS: Wrong item rejected
+CRITICAL PASS: Wrong feedback runs without collection
+CRITICAL PASS: Rejection restores renderers
+CRITICAL PASS: Thin solid obstacle blocks a 10 metre movement sweep
+CRITICAL PASS: NPC collision controller owns NavMesh movement
+CRITICAL PASS: Player cannot sweep through another robot
+CRITICAL PASS: NPC cannot sweep through the player
+CRITICAL PASS: NPC cannot sweep through a solid toy
+CRITICAL PASS: Restart returns to original spawn after teleport
+CRITICAL TESTS ALL PASSED

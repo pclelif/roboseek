@@ -31,6 +31,8 @@ namespace Robot.ObjectHunt
         [SerializeField, Range(1, 10)] private int countdownFrom = 3;
         [SerializeField, Min(0f)] private float roundCompleteDuration = 1.4f;
 
+        [SerializeField] private bool useUnscaledPresentation;
+
         [Header("Score")]
         [SerializeField, Min(0)] private int scorePerObject = 500;
         [SerializeField, Min(0)] private int completionBonus = 1500;
@@ -48,6 +50,11 @@ namespace Robot.ObjectHunt
         public int TotalScore { get; private set; }
         public RoundResultData LastResult { get; private set; }
 
+        // UI presentation intentionally pauses world input during the intro.
+        // Keep the intro/countdown clock independent from Time.timeScale so a
+        // lobby-to-map handoff can always reach the playable Search phase.
+        public void UseRealtimePresentation() => useUnscaledPresentation = true;
+
         private void Awake() => hunt = GetComponent<ObjectHuntRoundManager>();
 
         private void OnEnable()
@@ -58,7 +65,16 @@ namespace Robot.ObjectHunt
 
         private void Start()
         {
-            SetPhase(RoundPhase.Lobby);
+            if (CurrentPhase != RoundPhase.Lobby) return;
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (sceneName == "RoboSeek_Lobby" || sceneName == "UI_System_Demo")
+            {
+                SetPhase(RoundPhase.Lobby);
+            }
+            else
+            {
+                Robot.Audio.AudioManager.Instance?.StopMusic();
+            }
             if (autoStart) StartGame();
         }
 
@@ -70,8 +86,60 @@ namespace Robot.ObjectHunt
 
         public void StartGame()
         {
+            Robot.Audio.AudioManager.Instance?.StopMusic();
             if (CurrentPhase != RoundPhase.Lobby && CurrentPhase != RoundPhase.Result) return;
             StartNextRound();
+        }
+
+        private object PresentationDelay(float duration) => useUnscaledPresentation
+            ? (object)new WaitForSecondsRealtime(duration) : new WaitForSeconds(duration);
+
+        public void RestartRound()
+        {
+            hunt.EndRound();
+            var player = GameObject.FindGameObjectWithTag("Player");
+            ResetPlayerForRound();
+            Robot.Score.ScoreManager.Instance?.DiscardRoundProgress();
+            RoundNumber = Mathf.Max(0, RoundNumber - 1);
+            StartNextRound();
+        }
+
+        private void ResetPlayerForRound()
+        {
+            var player = GameObject.FindGameObjectWithTag("Player");
+            if (player == null) return;
+            player.GetComponent<Robot.Combat.CombatAttack>()?.CancelPendingAttack();
+            player.GetComponent<Robot.Combat.CombatHealth>()?.ResetForRound();
+
+            var rmc = player.GetComponent<Robot.Player.Movement.RobotMovementController>();
+            if (rmc != null) rmc.ReturnToSpawn();
+
+            var controller = player.GetComponent<CharacterController>();
+            if (controller != null)
+            {
+                bool wasEnabled = controller.enabled;
+                controller.enabled = false;
+                Vector3 pos = player.transform.position;
+                if (Physics.Raycast(pos + Vector3.up * 1.5f, Vector3.down, out RaycastHit hit, 5.0f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    player.transform.position = hit.point + Vector3.up * 0.02f;
+                }
+                Physics.SyncTransforms();
+                controller.enabled = wasEnabled;
+            }
+            rmc?.ResetGroundedMotion();
+
+            foreach (var camera in FindObjectsByType<Robot.Player.CameraControl.ThirdPersonCameraController>(FindObjectsSortMode.None))
+                camera.SnapToRoundStart(player.transform);
+        }
+
+        public void ReturnToLobby()
+        {
+            if (flowRoutine != null) StopCoroutine(flowRoutine);
+            flowRoutine = null;
+            hunt.EndRound();
+            Robot.Score.ScoreManager.Instance?.DiscardRoundProgress();
+            SetPhase(RoundPhase.Lobby);
         }
 
         public void StartNextRound()
@@ -82,10 +150,12 @@ namespace Robot.ObjectHunt
 
         private IEnumerator RoundStartRoutine()
         {
+            hunt.StopSearch();
             RoundNumber++;
             Robot.Score.ScoreManager.Instance?.NextRound();
+            ResetPlayerForRound();
             SetPhase(RoundPhase.Intro);
-            yield return new WaitForSeconds(introDuration);
+            yield return PresentationDelay(introDuration);
 
             if (hunt == null) hunt = GetComponent<ObjectHuntRoundManager>() ?? FindFirstObjectByType<ObjectHuntRoundManager>();
 
@@ -94,21 +164,30 @@ namespace Robot.ObjectHunt
                 bool prepared = hunt.PrepareRound();
                 if (!prepared)
                 {
-                    yield return new WaitForSeconds(0.5f);
-                    hunt.PrepareRound();
+                    yield return PresentationDelay(0.5f);
+                    prepared = hunt.PrepareRound();
+                }
+                if (!prepared)
+                {
+                    SetPhase(RoundPhase.Lobby);
+                    flowRoutine = null;
+                    yield break;
                 }
             }
 
             SetPhase(RoundPhase.Targets);
-            yield return new WaitForSeconds(targetPreviewDuration);
+            yield return PresentationDelay(targetPreviewDuration);
             SetPhase(RoundPhase.Countdown);
             for (int value = countdownFrom; value >= 1; value--)
             {
                 CountdownChanged?.Invoke(value);
-                yield return new WaitForSeconds(1f);
+                Robot.Audio.AudioManager.Instance?.PlayCountdownTick();
+                yield return PresentationDelay(1f);
             }
+            ResetPlayerForRound();
             CountdownChanged?.Invoke(0);
-            yield return new WaitForSeconds(0.4f);
+            Robot.Audio.AudioManager.Instance?.PlayCountdownGo();
+            yield return PresentationDelay(0.4f);
             SetPhase(RoundPhase.Search);
             hunt.StartSearch();
             flowRoutine = null;
@@ -125,7 +204,8 @@ namespace Robot.ObjectHunt
         private IEnumerator CompleteRoutine()
         {
             SetPhase(RoundPhase.RoundComplete);
-            yield return new WaitForSeconds(roundCompleteDuration);
+            Robot.Audio.AudioManager.Instance?.PlayTargetCompleteFanfare();
+            yield return PresentationDelay(roundCompleteDuration);
             BuildResult(true);
             SetPhase(RoundPhase.Result);
             ResultReady?.Invoke(LastResult);

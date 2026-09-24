@@ -194,10 +194,13 @@ namespace Robot.Player
 
         private void OnRecovered(CombatHealth _)
         {
+            StopAllCoroutines();
+            isAttacking = isLanding = false;
+            wasGrounded = true;
             isShutdown = false;
             activeState = 0;
             movement?.SetControlEnabled(true);
-            PlayState(idleState, 0.2f);
+            if (animator != null) { animator.Play(idleState, 0, 0); animator.Update(0); }
         }
     }
 }

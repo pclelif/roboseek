@@ -23,6 +23,7 @@ namespace Robot.UI.Lobby
 
         private void Awake()
         {
+            if (!enabled || FindFirstObjectByType<Robot.UI.Production.UIStateManager>() != null) { enabled = false; return; }
             BuildUI();
             Hide();
         }

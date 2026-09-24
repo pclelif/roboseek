@@ -33,6 +33,7 @@ namespace Robot.UI
         private void OnGUI()
         {
             if (!showModeSwitcher) return;
+            if (FindFirstObjectByType<Robot.UI.Production.UIStateManager>() != null) return;
 
             string sceneName = SceneManager.GetActiveScene().name;
             bool isMultiplayerScene = sceneName.Contains("Demo2") || sceneName.Contains("DEMO-2") || sceneName.Contains("Multiplayer");

@@ -1,0 +1,57 @@
+PASS: Scene starts in Robot Hub with frozen world
+PASS: Hub blocks movement, attack and retrieval
+PASS: Hub cursor visible/unlocked
+PASS: Exactly one EventSystem
+PASS: Retained legacy HUD does not create a second Canvas
+PASS: Hub opens shared settings
+PASS: Audio and sensitivity persist through preference reload
+PASS: Master volume applied to AudioListener
+PASS: Settings opens shared Controls
+PASS: Escape from Controls returns to Settings (actual Settings)
+PASS: Escape from Settings returns to Hub
+PASS: Start Game enters intro without activating gameplay
+PASS: Intro reads exactly three real selected targets
+PASS: Retrieval rejected during intro
+PASS: GO enables existing gameplay systems
+PASS: Gameplay requests locked/hidden cursor (OS lock requires focused Game View)
+PASS: No interaction prompt without valid nearby target
+PASS: Existing movement works after intro
+PASS: Actual movement completes persistent movement hint
+PASS: Camera reads the existing local player input
+PASS: Existing camera responds to look input and saved sensitivity
+PASS: Actual camera movement completes persistent camera hint
+PASS: Escape pauses time and player input
+PASS: Pause blocks actual camera and Q attack input
+PASS: Round timer does not tick while paused
+PASS: Same Settings instance preserves pause and cursor
+PASS: Escape closes Settings before Pause
+PASS: Escape closes Controls before Pause
+PASS: Restart requires confirmation
+PASS: Cancel restart preserves paused round
+PASS: Resume restores gameplay
+PASS: Valid existing interaction fades prompt in
+PASS: Existing pickup accepts target
+PASS: Successful interaction hides prompt immediately
+PASS: Existing pickup updates manager found-state
+PASS: HUD marks retrieved target with checkmark
+PASS: Pickup restores movement when animation completes
+PASS: Completed retrieval persists interaction lesson
+PASS: Begin in-flight pickup before restart
+PASS: Confirmed restart clears progress and enters intro
+PASS: New round resets HUD found-state
+PASS: Restart cancels in-flight pickup without retaining its movement lock
+PASS: Preview visuals never add gameplay collectible objects
+PASS: Retrieve round target 0
+PASS: Retrieve round target 1
+PASS: Retrieve round target 2
+PASS: All targets transition to Result without scene load
+PASS: Result uses actual target count and existing round score
+PASS: Result gates input and unlocks cursor
+PASS: Next Round goes through intro again
+PASS: Movement restored after result and next round
+PASS: Existing timer failure enters result with gameplay gated
+PASS: Result Return to Lobby opens Hub
+PASS: Quit requires confirmation
+PASS: Confirmed quit returns to Hub and ends round
+PASS: Settings preserved between rounds and Hub
+PASS: production UI integration flow

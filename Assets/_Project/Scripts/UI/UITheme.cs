@@ -6,13 +6,15 @@ namespace Robot.UI
 {
     public static class UITheme
     {
-        public static readonly Color PrimaryBlue = new Color(0.22f, 0.58f, 0.85f, 1f);
-        public static readonly Color AccentYellow = new Color(0.95f, 0.77f, 0.25f, 1f);
-        public static readonly Color GlassBackground = new Color(0.08f, 0.12f, 0.18f, 0.88f);
-        public static readonly Color GlassDark = new Color(0.04f, 0.06f, 0.10f, 0.95f);
-        public static readonly Color TextWhite = new Color(0.94f, 0.96f, 0.98f, 1f);
-        public static readonly Color TextMuted = new Color(0.65f, 0.72f, 0.82f, 1f);
-        public static readonly Color SuccessGreen = new Color(0.20f, 0.75f, 0.45f, 1f);
+        // RoboSeek's shared "toy room at dusk" palette.  Keep UI surfaces on these
+        // values rather than introducing unrelated navy/black card colors per screen.
+        public static readonly Color PrimaryBlue = new Color(0.29f, 0.54f, 0.75f, 1f);
+        public static readonly Color AccentYellow = new Color(0.94f, 0.72f, 0.10f, 1f); // Matched original game yellow tone
+        public static readonly Color GlassBackground = new Color(0.07f, 0.07f, 0.07f, 0.96f);
+        public static readonly Color GlassDark = new Color(0.035f, 0.035f, 0.035f, 0.96f);
+        public static readonly Color TextWhite = new Color(0.97f, 0.95f, 0.91f, 1f);
+        public static readonly Color TextMuted = new Color(0.67f, 0.71f, 0.78f, 1f);
+        public static readonly Color SuccessGreen = new Color(0.30f, 0.66f, 0.56f, 1f);
         public static readonly Color DangerRed = new Color(0.85f, 0.25f, 0.25f, 1f);
 
         private const string KenneyBasePath = "Assets/ThirdParty/kenney_ui-pack-space-expansion/PNG/";
@@ -36,11 +38,19 @@ namespace Robot.UI
 
         public static Font GetKenneyFont()
         {
+            var font = Resources.Load<Font>("RobotHuntUI/Kenney Future");
+            if (font != null) return font;
 #if UNITY_EDITOR
-            return UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/ThirdParty/kenney_ui-pack-space-expansion/Font/Kenney Future.ttf");
-#else
-            return Resources.GetBuiltinResource<Font>("Arial.ttf");
+            font = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/ThirdParty/kenney_ui-pack-space-expansion/Font/Kenney Future.ttf");
+            if (font != null) return font;
 #endif
+            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (font != null) return font;
+            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font != null) return font;
+            font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            if (font != null) return font;
+            return Font.CreateDynamicFontFromOSFont("Sans-Serif", 16);
         }
 
         public static GameObject CreatePanel(Transform parent, string name, Vector2 size, Color bgColor, Sprite sprite = null)
@@ -94,7 +104,7 @@ namespace Robot.UI
 
             Text txt = txtObj.GetComponent<Text>();
             txt.text = labelText;
-            txt.font = GetKenneyFont() ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.font = GetKenneyFont();
             txt.fontSize = 18;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
@@ -109,7 +119,7 @@ namespace Robot.UI
             txtObj.transform.SetParent(parent, false);
             Text txt = txtObj.GetComponent<Text>();
             txt.text = content;
-            txt.font = GetKenneyFont() ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.font = GetKenneyFont();
             txt.fontSize = fontSize;
             txt.alignment = alignment;
             txt.color = color ?? TextWhite;

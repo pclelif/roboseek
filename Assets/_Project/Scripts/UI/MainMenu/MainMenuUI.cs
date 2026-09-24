@@ -51,7 +51,7 @@ namespace Robot.UI.MainMenu
             // Singleplayer Button
             Button singleBtn = UITheme.CreateButton(menuPanel.transform, "SINGLEPLAYER", new Vector2(360f, 54f), () =>
             {
-                SceneManager.LoadScene("Demo");
+                Robot.GameMode.GameModeManager.LoadSingleplayer();
             }, UITheme.PrimaryBlue);
             singleBtn.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, startY);
 

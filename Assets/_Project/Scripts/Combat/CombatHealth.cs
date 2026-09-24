@@ -47,6 +47,7 @@ namespace Robot.Combat
             if (amount <= 0f || IsKnockedOut) return false;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
+            Robot.Audio.AudioManager.Instance?.PlayRobotDamage();
             Damaged?.Invoke(this, amount, instigator);
             if (CurrentHealth <= 0f) BeginKnockout();
             return true;
@@ -58,12 +59,24 @@ namespace Robot.Combat
             CurrentHealth = Mathf.Min(maxHealth, CurrentHealth + amount);
         }
 
+        public void ResetForRound()
+        {
+            if (recoveryRoutine != null) StopCoroutine(recoveryRoutine);
+            recoveryRoutine = null;
+            CurrentHealth = maxHealth;
+            IsKnockedOut = false;
+            KnockoutTimeRemaining = 0;
+            Recovered?.Invoke(this);
+            onRecovered?.Invoke();
+        }
+
         public void SetTeam(CombatTeam value) => team = value;
 
         private void BeginKnockout()
         {
             if (IsKnockedOut) return;
             IsKnockedOut = true;
+            Robot.Audio.AudioManager.Instance?.PlayRobotKnockout();
             KnockedOut?.Invoke(this);
             onKnockout?.Invoke();
             if (recoveryRoutine != null) StopCoroutine(recoveryRoutine);

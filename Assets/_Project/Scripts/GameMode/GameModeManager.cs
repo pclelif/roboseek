@@ -25,8 +25,20 @@ namespace Robot.GameMode
         {
             CurrentMode = GameModeType.Singleplayer;
             ModeChanged?.Invoke(CurrentMode);
-            Debug.Log("[GameModeManager] Loading Singleplayer mode (Demo.unity)...");
-            SceneManager.LoadScene(SingleplayerSceneName);
+            var map = Robot.Core.MapManager.SelectedMap;
+            Debug.Log($"[GameModeManager] Loading Singleplayer mode for Map {map.displayName} ({map.scenePath})...");
+            if (Application.CanStreamedLevelBeLoaded(map.scenePath))
+            {
+                SceneManager.LoadScene(map.scenePath);
+            }
+            else if (Application.CanStreamedLevelBeLoaded(map.sceneName))
+            {
+                SceneManager.LoadScene(map.sceneName);
+            }
+            else
+            {
+                SceneManager.LoadScene(map.scenePath);
+            }
         }
 
         public static void LoadMultiplayer()

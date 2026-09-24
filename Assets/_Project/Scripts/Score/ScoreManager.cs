@@ -73,6 +73,15 @@ namespace Robot.Score
             ScoreChanged?.Invoke(localScore);
         }
 
+        public void DiscardRoundProgress()
+        {
+            localScore.objectsFound = 0;
+            localScore.firstFinderCount = 0;
+            localScore.combatHits = 0;
+            combatCooldowns.Clear();
+            ScoreChanged?.Invoke(localScore);
+        }
+
         public void ResetMatch()
         {
             localScore.ResetMatch();

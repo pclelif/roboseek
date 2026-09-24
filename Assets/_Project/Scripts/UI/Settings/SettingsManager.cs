@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Robot.UI.Settings
 {
+    [DefaultExecutionOrder(-500)]
     [DisallowMultipleComponent]
     public sealed class SettingsManager : MonoBehaviour
     {
@@ -34,12 +35,14 @@ namespace Robot.UI.Settings
             LoadSettings();
         }
 
+        private void OnDestroy() { if (Instance == this) Instance = null; }
+
         public void LoadSettings()
         {
-            MasterVolume = PlayerPrefs.GetFloat(KeyMasterVol, 1.0f);
-            MusicVolume = PlayerPrefs.GetFloat(KeyMusicVol, 0.8f);
-            SFXVolume = PlayerPrefs.GetFloat(KeySFXVol, 1.0f);
-            Sensitivity = PlayerPrefs.GetFloat(KeySensitivity, 1.0f);
+            MasterVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(KeyMasterVol, 1.0f));
+            MusicVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(KeyMusicVol, 0.8f));
+            SFXVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(KeySFXVol, 1.0f));
+            Sensitivity = Mathf.Clamp(PlayerPrefs.GetFloat(KeySensitivity, 1.0f), .2f, 3f);
             Language = PlayerPrefs.GetString(KeyLanguage, "Türkçe");
 
             ApplySettings();

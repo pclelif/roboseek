@@ -61,6 +61,11 @@ namespace Robot.UI.HUD
 
         private bool ShouldHandleUI()
         {
+            if (FindFirstObjectByType<Robot.UI.Production.UIStateManager>() != null)
+            {
+                return false;
+            }
+
             if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening)
             {
                 return false;

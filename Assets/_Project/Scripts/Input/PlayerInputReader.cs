@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 namespace Robot.Input
 {
     /// <summary>Owns Input System access and exposes device-independent player intent with guaranteed zero-reset when keys are released.</summary>
+    [DefaultExecutionOrder(-100)]
     public sealed class PlayerInputReader : MonoBehaviour
     {
         [SerializeField] private InputActionAsset actions;
@@ -31,10 +32,12 @@ namespace Robot.Input
         private bool pausePressed;
         private bool attackPressed;
         private bool isListening;
+        private bool dashPressed, mobileJumpHeld, mobileRunHeld;
 
         public Vector2 MoveInput => Vector2.ClampMagnitude(moveInput + mobileMoveInput, 1f);
         public Vector2 LookInput => lookInput + mobileLookInput;
-        public bool RunHeld => (runAction != null && runAction.enabled && runAction.IsPressed()) || UnityEngine.Input.GetKey(KeyCode.LeftShift);
+        public bool RunHeld => mobileRunHeld || (runAction != null && runAction.enabled && runAction.IsPressed()) || UnityEngine.Input.GetKey(KeyCode.LeftShift);
+        public bool JumpHeld => mobileJumpHeld || (jumpAction != null && jumpAction.enabled && jumpAction.IsPressed()) || UnityEngine.Input.GetKey(KeyCode.Space);
         public float ZoomInput => zoomInput;
 
         public void Configure(InputActionAsset inputActions)
@@ -178,6 +181,11 @@ namespace Robot.Input
             }
         }
 
+        public void RequestJump() => jumpPressed = true;
+        public void RequestDash() => dashPressed = true;
+        public void SetMobileJumpHeld(bool value) => mobileJumpHeld = value;
+        public void SetMobileRunHeld(bool value) => mobileRunHeld = value;
+        public bool ConsumeDashPressed() => Consume(ref dashPressed) || UnityEngine.Input.GetKeyDown(KeyCode.F);
         public void SetMobileMove(Vector2 value) => mobileMoveInput = Vector2.ClampMagnitude(value, 1f);
         public void SetMovementInput(Vector2 value) => SetMobileMove(value);
         public void SetMobileLook(Vector2 value) => mobileLookInput = value;
@@ -191,8 +199,17 @@ namespace Robot.Input
             return Consume(ref attackPressed) || keyboardPressed;
         }
 
+        public InputActionAsset Actions => actions;
+        public void ClearBufferedInput()
+        {
+            moveInput = lookInput = mobileMoveInput = mobileLookInput = Vector2.zero;
+            zoomInput = 0f;
+            jumpPressed = interactPressed = attackPressed = pausePressed = dashPressed = mobileJumpHeld = mobileRunHeld = false;
+        }
+
         public void SetPaused(bool paused)
         {
+            ClearBufferedInput();
             if (paused)
             {
                 if (playerMap != null) try { playerMap.Disable(); } catch (System.Exception) {}

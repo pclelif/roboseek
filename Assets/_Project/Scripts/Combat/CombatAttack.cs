@@ -25,6 +25,7 @@ namespace Robot.Combat
         private float nextAttackTime;
         private bool isAttacking;
 
+        public event System.Action AttackStarted;
         public float Damage => damage;
         public float AttackRange => attackRange;
         public float AttackCooldown => attackCooldown;
@@ -35,6 +36,13 @@ namespace Robot.Combat
         {
             health = GetComponent<CombatHealth>();
             animationDriver = GetComponent<Robot.Player.RobotAnimator>();
+        }
+
+        public void CancelPendingAttack()
+        {
+            StopAllCoroutines();
+            isAttacking = false;
+            nextAttackTime = Time.time;
         }
 
         public bool TryAttack(Transform intendedTarget = null)
@@ -48,6 +56,8 @@ namespace Robot.Combat
         private IEnumerator AttackRoutine(Transform intendedTarget)
         {
             isAttacking = true;
+            AttackStarted?.Invoke();
+            Robot.Audio.AudioManager.Instance?.PlayAttackSwing();
             nextAttackTime = Time.time + attackCooldown;
             animationDriver?.PlayAttack();
             yield return new WaitForSeconds(hitWindowDelay);
@@ -67,8 +77,22 @@ namespace Robot.Combat
                 if (target == null || target.TargetTransform == transform || target.IsKnockedOut || damagedThisSwing.Contains(target)) continue;
                 if (!allowFriendlyFire && target.Team == health.Team) continue;
                 if (intendedTarget != null && target.TargetTransform != intendedTarget && !target.TargetTransform.IsChildOf(intendedTarget)) continue;
+                
+                // Add simple collision reaction - push back if too close
+                float distance = Vector3.Distance(transform.position, target.TargetTransform.position);
+                if (distance < 1.2f)
+                {
+                    Vector3 pushDirection = (transform.position - target.TargetTransform.position).normalized;
+                    Rigidbody targetRb = target.TargetTransform.GetComponent<Rigidbody>();
+                    if (targetRb != null)
+                    {
+                        targetRb.AddForce(pushDirection * 5f, ForceMode.Impulse);
+                    }
+                }
+                
                 if (target.TakeDamage(damage, gameObject))
                 {
+                    Robot.Audio.AudioManager.Instance?.PlayAttackHit();
                     damagedThisSwing.Add(target);
 
                     // FAZ 14: Report Combat Hit to Score systems (+10 pts with 2.5s anti-spam cooldown)

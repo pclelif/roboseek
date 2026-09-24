@@ -54,9 +54,36 @@ namespace Robot.NPC
             aggressionZones = zones;
         }
 
+        private CharacterController solidController;
+        private void LateUpdate()
+        {
+            if (agent == null || !agent.enabled || !agent.isOnNavMesh || solidController == null || !solidController.enabled) return;
+            Vector3 desired = agent.nextPosition - transform.position;
+            desired.y = -2f * Time.deltaTime;
+            Robot.Player.Movement.SolidRobotBody.Move(solidController, desired);
+            agent.nextPosition = transform.position;
+        }
+
         private void Awake()
         {
+            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
             agent = GetComponent<NavMeshAgent>();
+            // NavMesh plans the path; CharacterController owns actual solid movement.
+            foreach (var oldBody in GetComponents<Collider>()) oldBody.enabled = false;
+            var physicsBody = GetComponent<Rigidbody>();
+            if (physicsBody != null) Destroy(physicsBody);
+            solidController = GetComponent<CharacterController>();
+            if (solidController == null) solidController = gameObject.AddComponent<CharacterController>();
+            solidController.enabled = true;
+            solidController.radius = agent.radius;
+            solidController.height = agent.height;
+            solidController.center = Vector3.up * (agent.height * .5f + agent.baseOffset);
+            solidController.stepOffset = 0;
+            solidController.skinWidth = .015f;
+            solidController.detectCollisions = true;
+            solidController.enableOverlapRecovery = true;
+            agent.updatePosition = false;
+            if (GetComponent<Robot.Player.Movement.SolidRobotBody>() == null) gameObject.AddComponent<Robot.Player.Movement.SolidRobotBody>();
             health = GetComponent<CombatHealth>();
             attack = GetComponent<CombatAttack>();
             animationDriver = GetComponent<RobotAnimator>();
@@ -81,6 +108,7 @@ namespace Robot.NPC
 
         private void OnDisable()
         {
+            PlayerEncounterChanged?.Invoke(this, target, false);
             if (health != null)
             {
                 health.KnockedOut -= HandleKnockout;
@@ -125,7 +153,14 @@ namespace Robot.NPC
 
         private void UpdateWander()
         {
-            if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.15f) EnterIdle();
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.15f) EnterIdle();
+            }
+            else
+            {
+                EnterIdle();
+            }
         }
 
         private void UpdateReaction()
@@ -146,11 +181,11 @@ namespace Robot.NPC
         private void UpdateChase()
         {
             if (ShouldGiveUp()) { ReturnToWander(); return; }
-            agent.speed = targetInput != null && targetInput.RunHeld ? sprintChaseSpeed : chaseSpeed;
+            SetSpeed(targetInput != null && targetInput.RunHeld ? sprintChaseSpeed : chaseSpeed);
             float distance = FlatDistance(target.position);
             if (distance <= attack.AttackRange)
             {
-                agent.isStopped = true;
+                SetStopped(true);
                 if (slots == null || slots.TryAcquire(this))
                 {
                     ownsAttackSlot = slots != null;
@@ -158,8 +193,7 @@ namespace Robot.NPC
                 }
                 return;
             }
-            agent.isStopped = false;
-            agent.SetDestination(target.position);
+            SetDestinationSafely(target.position);
         }
 
         private void UpdateAttack()
@@ -237,6 +271,32 @@ namespace Robot.NPC
             return !CanDetectTarget() && FlatDistance(target.position) > loseTargetDistance;
         }
 
+        private void SetStopped(bool stopped)
+        {
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = stopped;
+            }
+        }
+
+        private void SetSpeed(float speed)
+        {
+            if (agent != null)
+            {
+                agent.speed = speed;
+            }
+        }
+
+        private bool SetDestinationSafely(Vector3 targetPos)
+        {
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                return agent.SetDestination(targetPos);
+            }
+            return false;
+        }
+
         private void PickWanderPoint()
         {
             for (int attempt = 0; attempt < 8; attempt++)
@@ -244,9 +304,8 @@ namespace Robot.NPC
                 Vector2 circle = Random.insideUnitCircle * wanderRadius;
                 Vector3 candidate = home + new Vector3(circle.x, 0f, circle.y);
                 if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, 4f, NavMesh.AllAreas)) continue;
-                agent.isStopped = false;
-                agent.speed = walkSpeed;
-                agent.SetDestination(hit.position);
+                SetSpeed(walkSpeed);
+                SetDestinationSafely(hit.position);
                 state = State.Wander;
                 return;
             }
@@ -256,15 +315,15 @@ namespace Robot.NPC
         private void EnterIdle()
         {
             state = State.Idle;
-            agent.isStopped = true;
+            SetStopped(true);
             stateUntil = Time.time + Random.Range(idleTimeRange.x, idleTimeRange.y);
         }
 
         private void EnterChase()
         {
             state = State.Chase;
-            agent.speed = chaseSpeed;
-            agent.isStopped = false;
+            SetSpeed(chaseSpeed);
+            SetStopped(false);
         }
 
         private bool TryEnterChase()
@@ -273,32 +332,36 @@ namespace Robot.NPC
             return true;
         }
 
+        public static event System.Action<NpcRobotController, Transform, bool> PlayerEncounterChanged;
         private void EnterReaction()
         {
+            PlayerEncounterChanged?.Invoke(this, target, true);
             state = State.React;
-            agent.isStopped = true;
+            SetStopped(true);
             stateUntil = Time.time + Random.Range(reactionTimeRange.x, reactionTimeRange.y);
         }
 
         private void ReturnToWander()
         {
+            PlayerEncounterChanged?.Invoke(this, target, false);
             ReleaseSlot();
-            agent.speed = walkSpeed;
+            SetSpeed(walkSpeed);
             EnterIdle();
         }
 
         private void HandleKnockout(CombatHealth _)
         {
+            PlayerEncounterChanged?.Invoke(this, target, false);
             state = State.Knockout;
             ReleaseSlot();
-            if (agent.isOnNavMesh) agent.isStopped = true;
+            SetStopped(true);
             if (!health.RecoverAfterKnockout && agent.enabled) agent.enabled = false;
         }
 
         private void HandleRecovery(CombatHealth _)
         {
             if (!agent.enabled) agent.enabled = true;
-            if (agent.isOnNavMesh) agent.isStopped = false;
+            SetStopped(false);
             EnterIdle();
         }
 

@@ -16,6 +16,7 @@ namespace Robot.UI.HUD
 
         private void Awake()
         {
+            if (!enabled || FindFirstObjectByType<Robot.UI.Production.UIStateManager>() != null) { enabled = false; return; }
             BuildUI();
             Hide();
         }
@@ -98,7 +99,10 @@ namespace Robot.UI.HUD
                 Time.timeScale = 1f;
                 if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
                     NetworkManager.Singleton.Shutdown();
-                SceneManager.LoadScene("Demo");
+                if (Application.CanStreamedLevelBeLoaded("RoboSeek_Lobby"))
+                    SceneManager.LoadScene("RoboSeek_Lobby");
+                else
+                    SceneManager.LoadScene("Assets/_Project/Scenes/RoboSeek_Lobby.unity");
             }, UITheme.DangerRed);
             menuBtn.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, startY - stepY * 2);
         }

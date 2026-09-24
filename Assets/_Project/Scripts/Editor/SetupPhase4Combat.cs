@@ -309,6 +309,7 @@ namespace Robot.Editor
             try
             {
                 root.name = "RobotNPC";
+                root.tag = "Untagged";
                 DestroyImmediateIfPresent<PlayerCombatInput>(root);
                 DestroyImmediateIfPresent<RobotMovementController>(root);
                 DestroyImmediateIfPresent<PlayerInputReader>(root);

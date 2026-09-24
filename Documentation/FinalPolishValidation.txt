@@ -1,0 +1,34 @@
+PASS Lobby deck moved up
+PASS Heal before Pause in Controls
+PASS Health aligned beneath Time at equal width
+PASS Health heading contains no numbers
+PASS Ambulance uses shared yellow keycap
+PASS No plain H brackets
+PASS H begins gradual healing without instant full health
+PASS Health increases progressively
+PASS Green healing fill shakes
+PASS Leaving ambulance stops healing
+PASS Attack preserves solid hull
+PASS Knockout retains controller and solid body
+PASS Fallen visual contained: R1_Arm.L
+PASS Fallen visual contained: R1_Arm.R
+PASS Fallen visual contained: R1_Body
+PASS Fallen visual contained: R1_Head
+PASS Fallen visual contained: R1_Leg.L
+PASS Fallen visual contained: R1_Leg.R
+PASS Fallen robot blocks approach / jump: (0.00, 0.00, 1.00) height=0
+PASS Fallen robot blocks approach / jump: (0.00, 0.00, 1.00) height=1.2
+PASS Fallen robot blocks approach / jump: (0.00, 0.00, -1.00) height=0
+PASS Fallen robot blocks approach / jump: (0.00, 0.00, -1.00) height=1.2
+PASS Fallen robot blocks approach / jump: (1.00, 0.00, 0.00) height=0
+PASS Fallen robot blocks approach / jump: (1.00, 0.00, 0.00) height=1.2
+PASS Fallen robot blocks approach / jump: (-1.00, 0.00, 0.00) height=0
+PASS Fallen robot blocks approach / jump: (-1.00, 0.00, 0.00) height=1.2
+PASS All 1024 layer collision pairs unchanged after attack and knockout
+PASS Recovery keeps solid hull
+PASS Player knockout prepared
+PASS Restart resets health and knockout timer
+PASS GO restores spawn and robot rotation
+PASS GO restores camera without orbit or damping history
+PASS Restart returns to gameplay
+ALL CHECKS PASSED

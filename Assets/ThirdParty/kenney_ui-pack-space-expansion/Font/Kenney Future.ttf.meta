@@ -10,7 +10,8 @@ TrueTypeFontImporter:
   includeFontData: 1
   fontNames:
   - Kenney Future
-  fallbackFontReferences: []
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: ba516b0966b804e2a9d257f827af90ed, type: 3}
   customCharacters: 
   fontRenderingMode: 0
   ascentCalculationMode: 1
