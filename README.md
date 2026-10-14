@@ -1,9 +1,5 @@
 # RoboSeek
 
-[![Unity 6000.3.9f1](https://img.shields.io/badge/Unity-6000.3.9f1-black?logo=unity)](https://unity.com/)
-[![Render Pipeline](https://img.shields.io/badge/Render%20Pipeline-URP%2017.3-informational)](https://unity.com/srp/universal-render-pipeline)
-[![Multiplayer](https://img.shields.io/badge/Netcode-NGO%202.0-blue)](https://docs-multiplayer.unity3d.com/)
-
 RoboSeek is a fast-paced, stylized 3D action-adventure and scavenger hunt game built with Unity 6. Play as an agile robot explorer, track down hidden collectible toys across low-poly worlds, and outmaneuver or fight rogue patrol robots. Each world has its own traversal mechanic, from jetpack flight to double jumping, dashing, and driving.
 
 ## Demo
